@@ -1,0 +1,11 @@
+[project]
+name = "quantum-error-correction"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "jupyter>=1.1.1",
+    "ldpc>=2.3.8",
+    "qiskit>=2.2.2",
+]
