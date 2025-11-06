@@ -346,10 +346,10 @@ def test(model, device, test_loader_list, ps_range_test, cum_count_lim=100000):
 
 def main(args):
     # XPU (Intel GPU) -> CUDA (NVIDIA GPU) -> CPU 순서로 디바이스 자동 선택
-    if torch.xpu.is_available():
-        device = torch.device("xpu")
-        logging.info("Intel Arc GPU (XPU)를 사용합니다.")
-    elif torch.cuda.is_available():
+    #if torch.xpu.is_available():
+    #    device = torch.device("xpu")
+    #    logging.info("Intel Arc GPU (XPU)를 사용합니다.")
+    if torch.cuda.is_available():
         device = torch.device("cuda")
         logging.info("NVIDIA GPU (CUDA)를 사용합니다.")
     else:
