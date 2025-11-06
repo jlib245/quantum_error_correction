@@ -392,12 +392,12 @@ def main(args):
         if epoch % 10 == 0 or epoch in [args.epochs]:
             test(model, device, test_dataloader_list, ps_test)
     ###
-    model = torch.load(os.path.join(args.path, 'best_model')).to(device)
+    model = torch.load(os.path.join(args.path, 'best_model'), weights_only=False).to(device)
     logging.info('Best model loaded')
     ps_test = [0.07, 0.08, 0.09, 0.1, 0.11]
     ###
-    test_dataloader_list = [DataLoader(QECC_Dataset(code, [ps_test[ii]], len=int(args.test_batch_size),args=args),
-                                       batch_size=int(args.test_batch_size), shuffle=False, num_workers=args.workers) for ii in range(len(ps_test))]
+    test_dataloader_list = [DataLoader(QECC_Dataset(code, x_error_basis_dict, z_error_basis_dict, [ps_test[ii]], len=int(args.test_batch_size),args=args),
+                                       batch_size=int(args.test_batch_size), shuffle=False, num_workers=args.workers) for ii in range(len(ps_test))]    
     test(model, device, test_dataloader_list, ps_test)
 
 ##################################################################################################################
