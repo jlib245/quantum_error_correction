@@ -269,7 +269,11 @@ def train(model, device, train_loader, optimizer, epoch, LR):
         syndrome, labels = syndrome.to(device), labels.to(device)
         outputs = model(syndrome)
 
-        loss = model.module.loss(outputs, labels)
+        # DataParallel이 사용된 경우 .module 로 접근, 아닐 경우 직접 접근
+        if isinstance(model, torch.nn.DataParallel):
+            loss = model.module.loss(outputs, labels)
+        else:
+            loss = model.loss(outputs, labels)
 
         model.zero_grad()
         loss.backward()
@@ -341,7 +345,16 @@ def test(model, device, test_loader_list, ps_range_test, cum_count_lim=100000):
 
 
 def main(args):
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    # XPU (Intel GPU) -> CUDA (NVIDIA GPU) -> CPU 순서로 디바이스 자동 선택
+    if torch.xpu.is_available():
+        device = torch.device("xpu")
+        logging.info("Intel Arc GPU (XPU)를 사용합니다.")
+    elif torch.cuda.is_available():
+        device = torch.device("cuda")
+        logging.info("NVIDIA GPU (CUDA)를 사용합니다.")
+    else:
+        device = torch.device("cpu")
+        logging.info("사용 가능한 GPU가 없어 CPU를 사용합니다.")
     args.code.logic_matrix = args.code.logic_matrix.to(device) 
     args.code.pc_matrix = args.code.pc_matrix.to(device) 
     code = args.code
@@ -358,7 +371,14 @@ def main(args):
     ##################################################################
     ##################################################################
     model = ECC_Transformer(args, dropout=0).to(device)
-    model = torch.nn.DataParallel(model)
+
+    # DataParallel은 CUDA(NVIDIA)에서만 사용하고 XPU에서는 충돌하므로 사용하지 않음
+    if device.type == 'cuda' and torch.cuda.is_available():
+        logging.info(f"NVIDIA GPU {torch.cuda.device_count()}개를 DataParallel로 사용합니다.")
+        model = torch.nn.DataParallel(model)
+    elif device.type == 'xpu':
+        logging.info("단일 Intel Arc GPU (XPU)를 사용합니다 (DataParallel 비활성화).")
+
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
     scheduler = CosineAnnealingLR(optimizer, T_max=args.epochs, eta_min=1e-6)
     
@@ -384,10 +404,15 @@ def main(args):
         loss, ber, ler = train(model, device, train_dataloader, optimizer,
                                epoch, LR=scheduler.get_last_lr()[0])
         scheduler.step()
-        torch.save(model, os.path.join(args.path, 'last_model'))
+        model_to_save = model.module if isinstance(model, torch.nn.DataParallel) else model
+        torch.save(model_to_save, os.path.join(args.path, 'best_model'))
+
         if loss < best_loss:
             best_loss = loss
-            torch.save(model, os.path.join(args.path, 'best_model'))
+
+            model_to_save = model.module if isinstance(model, torch.nn.DataParallel) else model
+            torch.save(model_to_save, os.path.join(args.path, 'final_model'))
+
             logging.info('Model Saved')
         if epoch % 10 == 0 or epoch in [args.epochs]:
             test(model, device, test_dataloader_list, ps_test)
