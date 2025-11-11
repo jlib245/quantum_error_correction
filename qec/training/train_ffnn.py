@@ -352,12 +352,17 @@ def test(model, device, test_loader_list, ps_range_test, cum_count_lim=100000):
 
 
 def main(args):
+    # Device selection: CUDA > XPU > CPU
     if torch.cuda.is_available():
         device = torch.device("cuda")
-        logging.info("NVIDIA GPU (CUDA)를 사용합니다.")
+        logging.info(f"NVIDIA GPU (CUDA)를 사용합니다: {torch.cuda.get_device_name(0)}")
+    elif hasattr(torch, 'xpu') and torch.xpu.is_available():
+        device = torch.device("xpu")
+        logging.info(f"Intel Arc GPU (XPU)를 사용합니다: {torch.xpu.get_device_name(0)}")
     else:
         device = torch.device("cpu")
         logging.info("사용 가능한 GPU가 없어 CPU를 사용합니다.")
+
     args.code.logic_matrix = args.code.logic_matrix.to(device)
     args.code.pc_matrix = args.code.pc_matrix.to(device)
     code = args.code
@@ -371,11 +376,12 @@ def main(args):
 
     model = ECC_Transformer(args, dropout=0).to(device)
 
-    if device.type == 'cuda' and torch.cuda.is_available():
+    # DataParallel for multi-GPU (CUDA only)
+    if device.type == 'cuda' and torch.cuda.device_count() > 1:
         logging.info(f"NVIDIA GPU {torch.cuda.device_count()}개를 DataParallel로 사용합니다.")
         model = torch.nn.DataParallel(model)
     elif device.type == 'xpu':
-        logging.info("단일 Intel Arc GPU (XPU)를 사용합니다 (DataParallel 비활성화).")
+        logging.info("Intel Arc GPU (XPU) - 단일 GPU 모드 (권장: L>=5, batch_size>=512)")
 
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
     scheduler = CosineAnnealingLR(optimizer, T_max=args.epochs, eta_min=1e-6)
@@ -387,8 +393,8 @@ def main(args):
     ps_train = [0.09]
     ps_test = [0.07, 0.08, 0.09, 0.1, 0.11]
 
-    # pin_memory=True for faster CPU->GPU data transfer
-    use_pin_memory = device.type == 'cuda'
+    # pin_memory=True for faster CPU->GPU data transfer (CUDA and XPU)
+    use_pin_memory = device.type in ['cuda', 'xpu']
 
     train_dataloader = DataLoader(QECC_Dataset(code, x_error_basis_dict, z_error_basis_dict, ps_train, len=args.batch_size * 1000, args=args), batch_size=int(args.batch_size),
                                   shuffle=True, num_workers=args.workers, persistent_workers=True, pin_memory=use_pin_memory)
