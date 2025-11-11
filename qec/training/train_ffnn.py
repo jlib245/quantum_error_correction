@@ -352,16 +352,34 @@ def test(model, device, test_loader_list, ps_range_test, cum_count_lim=100000):
 
 
 def main(args):
-    # Device selection: CUDA > XPU > CPU
-    if torch.cuda.is_available():
-        device = torch.device("cuda")
-        logging.info(f"NVIDIA GPU (CUDA)를 사용합니다: {torch.cuda.get_device_name(0)}")
-    elif hasattr(torch, 'xpu') and torch.xpu.is_available():
-        device = torch.device("xpu")
-        logging.info(f"Intel Arc GPU (XPU)를 사용합니다: {torch.xpu.get_device_name(0)}")
-    else:
+    # Device selection
+    if args.device == 'cpu':
         device = torch.device("cpu")
-        logging.info("사용 가능한 GPU가 없어 CPU를 사용합니다.")
+        logging.info("CPU를 사용합니다 (강제 설정).")
+    elif args.device == 'cuda':
+        if torch.cuda.is_available():
+            device = torch.device("cuda")
+            logging.info(f"NVIDIA GPU (CUDA)를 사용합니다: {torch.cuda.get_device_name(0)}")
+        else:
+            logging.warning("CUDA를 요청했지만 사용할 수 없습니다. CPU로 fallback합니다.")
+            device = torch.device("cpu")
+    elif args.device == 'xpu':
+        if hasattr(torch, 'xpu') and torch.xpu.is_available():
+            device = torch.device("xpu")
+            logging.info(f"Intel Arc GPU (XPU)를 사용합니다: {torch.xpu.get_device_name(0)}")
+        else:
+            logging.warning("XPU를 요청했지만 사용할 수 없습니다. CPU로 fallback합니다.")
+            device = torch.device("cpu")
+    else:  # auto
+        if torch.cuda.is_available():
+            device = torch.device("cuda")
+            logging.info(f"NVIDIA GPU (CUDA)를 사용합니다: {torch.cuda.get_device_name(0)}")
+        elif hasattr(torch, 'xpu') and torch.xpu.is_available():
+            device = torch.device("xpu")
+            logging.info(f"Intel Arc GPU (XPU)를 사용합니다: {torch.xpu.get_device_name(0)}")
+        else:
+            device = torch.device("cpu")
+            logging.info("사용 가능한 GPU가 없어 CPU를 사용합니다.")
 
     args.code.logic_matrix = args.code.logic_matrix.to(device)
     args.code.pc_matrix = args.code.pc_matrix.to(device)
@@ -441,6 +459,9 @@ if __name__ == '__main__':
     parser.add_argument('--batch_size', type=int, default=128)
     parser.add_argument('--test_batch_size', type=int, default=512)
     parser.add_argument('--seed', type=int, default=42)
+    parser.add_argument('--device', type=str, default='auto',
+                        choices=['auto', 'cpu', 'cuda', 'xpu'],
+                        help='Device to use: auto (default), cpu, cuda, or xpu')
 
     # Code args
     parser.add_argument('--code_type', type=str, default='surface',choices=['surface'])
