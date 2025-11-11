@@ -1,3 +1,0 @@
-"""
-QEC Transformer Module
-"""

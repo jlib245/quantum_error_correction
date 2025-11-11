@@ -1,0 +1,35 @@
+Decoder Comparison Script
+Code distance L=3
+Y-ratio: 0.3
+Test shots per p: 1000
+Error rates: [0.09]
+Device: cpu
+Code loaded: n_qubits=9
+
+============================================================
+MWPM Decoder Evaluation
+============================================================
+
+Testing p=0.090...
+  LER: 8.600000e-02
+  Avg Latency: 0.005700 ms
+  Logical Errors: 86/1000
+
+============================================================
+FFNN Model Evaluation
+============================================================
+Model path: Final_Results_QECCT/surface/FFNN_Code_L_3/noise_model_independent/repetition_1/11_11_2025_22_06_01/final_model
+Model loaded successfully (full model)
+
+Testing p=0.090...
+  LER: 8.200000e-02
+  Avg Latency: 0.023408 ms
+  Logical Errors: 82/1000
+
+================================================================================
+COMPARISON SUMMARY
+================================================================================
+p_error     MWPM LER            MWPM Latency(ms)         FFNN LER            FFNN Latency(ms)         
+--------------------------------------------------------------------------------
+0.090       8.600000e-02        0.005700                 8.200000e-02        0.023408                 
+================================================================================
