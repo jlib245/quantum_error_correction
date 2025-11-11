@@ -204,36 +204,17 @@ class QECC_Dataset(data.Dataset):
         self.z_error_basis_dict = z_error_basis
 
     def generate_noise(self, p):
-        # OPTIMIZED: Generate noise directly on GPU (2-3x faster)
         if self.args.y_ratio > 0:
-            # Correlated noise with Y errors
-            p_Y = p * self.args.y_ratio
-            p_X = p * (1 - self.args.y_ratio) / 2
-            p_Z = p * (1 - self.args.y_ratio) / 2
-
-            rand_samples = torch.rand(self.n_phys, device=self.device)
-
-            e_x = torch.zeros(self.n_phys, dtype=torch.uint8, device=self.device)
-            e_z = torch.zeros(self.n_phys, dtype=torch.uint8, device=self.device)
-
-            # X errors
-            e_x[rand_samples < p_X] = 1
-            # Y errors (both X and Z)
-            mask_Y = (rand_samples >= p_X) & (rand_samples < p_X + p_Y)
-            e_x[mask_Y] = 1
-            e_z[mask_Y] = 1
-            # Z errors
-            e_z[(rand_samples >= p_X + p_Y) & (rand_samples < p_X + p_Y + p_Z)] = 1
+            e_x_np, e_z_np = generate_correlated_noise(self.n_phys, p, self.args.y_ratio)
         else:
-            # Independent noise (vectorized on GPU)
-            rand_vals = torch.rand(self.n_phys, device=self.device)
-            e_z = (rand_vals < p/3).to(torch.uint8)
-            e_x = ((p/3 <= rand_vals) & (rand_vals < 2*p/3)).to(torch.uint8)
-            e_y = ((2*p/3 <= rand_vals) & (rand_vals < p)).to(torch.uint8)
+            rand_vals = np.random.rand(self.n_phys)
+            e_z_np = (rand_vals < p/3)
+            e_x_np = (p/3 <= rand_vals) & (rand_vals < 2*p/3)
+            e_y_np = (2*p/3 <= rand_vals) & (rand_vals < p)
+            e_z_np, e_x_np = (e_z_np + e_y_np) % 2, (e_x_np + e_y_np) % 2
 
-            e_z = (e_z + e_y) % 2
-            e_x = (e_x + e_y) % 2
-
+        e_z = torch.from_numpy(e_z_np).to(self.device, dtype=torch.uint8)
+        e_x = torch.from_numpy(e_x_np).to(self.device, dtype=torch.uint8)
         return torch.cat([e_z, e_x])
 
     def __getitem__(self, index):
