@@ -1,0 +1,39 @@
+Path to model/logs: Final_Results_QECCT/surface/Transformer_Code_L_3/noise_model_independent/repetition_1/06_11_2025_15_26_49
+Namespace(epochs=5, workers=4, lr=0.01, gpus='0', batch_size=128, test_batch_size=512, seed=42, code_type='surface', code_L=3, repetitions=1, noise_type='independent', N_dec=6, d_model=128, h=16, lambda_loss_ber=0.3, lambda_loss_ler=1.0, lambda_loss_n_pred=0.3, lambda_loss_log_pred=1, no_g=0, no_mask=0, code=<__main__.Code object at 0x71d20999a470>, path='Final_Results_QECCT/surface/Transformer_Code_L_3/noise_model_independent/repetition_1/06_11_2025_15_26_49')
+Intel Arc GPU (XPU)를 사용합니다.
+단일 Intel Arc GPU (XPU)를 사용합니다 (DataParallel 비활성화).
+PC matrix shape torch.Size([8, 18])
+ECC_Transformer(
+  (pos_encoder): PositionalEncoding(
+    (dropout): Dropout(p=0, inplace=False)
+  )
+  (encoder): Encoder(
+    (layers): ModuleList(
+      (0-5): 6 x EncoderLayer(
+        (self_attn): MultiHeadedAttention(
+          (linears): ModuleList(
+            (0-3): 4 x Linear(in_features=128, out_features=128, bias=True)
+          )
+          (dropout): Dropout(p=0.0, inplace=False)
+        )
+        (feed_forward): PositionwiseFeedForward(
+          (w_1): Linear(in_features=128, out_features=512, bias=True)
+          (w_2): Linear(in_features=512, out_features=128, bias=True)
+          (dropout): Dropout(p=0, inplace=False)
+        )
+        (sublayer): ModuleList(
+          (0-1): 2 x SublayerConnection(
+            (norm): LayerNorm((128,), eps=1e-05, elementwise_affine=True)
+            (dropout): Dropout(p=0, inplace=False)
+          )
+        )
+      )
+    )
+    (norm): LayerNorm((128,), eps=1e-05, elementwise_affine=True)
+    (norm2): LayerNorm((128,), eps=1e-05, elementwise_affine=True)
+  )
+  (input_embedding): Linear(in_features=8, out_features=128, bias=True)
+  (output_classifier): Linear(in_features=128, out_features=4, bias=True)
+  (criterion): CrossEntropyLoss()
+)
+# of Parameters: 1191812

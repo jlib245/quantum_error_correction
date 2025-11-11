@@ -19,6 +19,37 @@ import shutil
 ####################################################################################################################################
 ####################################################################################################################################
 
+def generate_correlated_noise(n_qubits, p_total, y_ratio=0.3):
+    """
+    계획서 목표 노이즈 모델: 상관 오류 (Y 오류)
+
+    Args:
+        n_qubits: 물리 큐빗 수
+        p_total: 전체 오류 확률
+        y_ratio: Y 오류 비율 (0.0~1.0)
+
+    Returns:
+        error_X, error_Z: numpy 배열
+    """
+    p_Y = p_total * y_ratio
+    p_X = p_total * (1 - y_ratio) / 2
+    p_Z = p_total * (1 - y_ratio) / 2
+
+    rand_samples = np.random.rand(n_qubits)
+
+    error_vector_X = np.zeros(n_qubits, dtype=int)
+    error_vector_Z = np.zeros(n_qubits, dtype=int)
+
+    # X 오류
+    error_vector_X[rand_samples < p_X] = 1
+    # Y 오류 (X와 Z 동시 발생)
+    error_vector_X[(rand_samples >= p_X) & (rand_samples < p_X + p_Y)] = 1
+    error_vector_Z[(rand_samples >= p_X) & (rand_samples < p_X + p_Y)] = 1
+    # Z 오류
+    error_vector_Z[(rand_samples >= p_X + p_Y) & (rand_samples < p_X + p_Y + p_Z)] = 1
+
+    return error_vector_X, error_vector_Z
+
 def set_seed(seed=42):
     random.seed(seed)
     torch.manual_seed(seed)
@@ -176,17 +207,22 @@ class QECC_Dataset(data.Dataset):
 
     def generate_noise(self, p):
         # e = [e_z, e_x] 순서로 생성
-        # Y-error를 포함한 depolarizing noise 모델
-        rand_vals = np.random.rand(self.n_phys)
-        e_z_np = (rand_vals < p/3)
-        e_x_np = (p/3 <= rand_vals) & (rand_vals < 2*p/3)
-        e_y_np = (2*p/3 <= rand_vals) & (rand_vals < p)
-        
-        e_z_np, e_x_np = (e_z_np + e_y_np) % 2, (e_x_np + e_y_np) % 2
-        
+
+        # y_ratio > 0: 상관 오류 (Y 오류 비율 지정)
+        if self.args.y_ratio > 0:
+            e_x_np, e_z_np = generate_correlated_noise(self.n_phys, p, self.args.y_ratio)
+        else:
+            # y_ratio = 0: 기존 depolarizing noise 모델
+            rand_vals = np.random.rand(self.n_phys)
+            e_z_np = (rand_vals < p/3)
+            e_x_np = (p/3 <= rand_vals) & (rand_vals < 2*p/3)
+            e_y_np = (2*p/3 <= rand_vals) & (rand_vals < p)
+
+            e_z_np, e_x_np = (e_z_np + e_y_np) % 2, (e_x_np + e_y_np) % 2
+
         e_z = torch.from_numpy(e_z_np).to(self.device, dtype=torch.uint8)
         e_x = torch.from_numpy(e_x_np).to(self.device, dtype=torch.uint8)
-        
+
         return torch.cat([e_z, e_x])
 
     def __getitem__(self, index):
@@ -461,6 +497,8 @@ if __name__ == '__main__':
     parser.add_argument('--code_L', type=int, default=4,help='Lattice length')
     parser.add_argument('--repetitions', type=int, default=1,help='Number of faulty repetitions. <=1 is equivalent to none.')
     parser.add_argument('--noise_type', type=str,default='independent', choices=['independent','depolarization'],help='Noise model')
+    parser.add_argument('-y', '--y_ratio', type=float, default=0.0,
+                        help="Ratio of Y errors for correlated noise (default: 0.0 = independent noise)")
 
     # model args
     parser.add_argument('--N_dec', type=int, default=6,help='Number of QECCT self-attention modules')
