@@ -417,6 +417,8 @@ def main(args):
                                        batch_size=int(args.test_batch_size), shuffle=False, num_workers=args.workers, persistent_workers=True, pin_memory=use_pin_memory, prefetch_factor=prefetch) for ii in range(len(ps_test))]
 
     best_loss = float('inf')
+    patience_counter = 0
+
     for epoch in range(1, args.epochs + 1):
         loss, ber, ler = train(model, device, train_dataloader, optimizer,
                                epoch, LR=scheduler.get_last_lr()[0])
@@ -425,13 +427,25 @@ def main(args):
         model_to_save = model.module if isinstance(model, torch.nn.DataParallel) else model
         torch.save(model_to_save, os.path.join(args.path, 'best_model'))
 
-        if loss < best_loss:
+        # Check for improvement
+        if loss < best_loss - args.min_delta:
             best_loss = loss
+            patience_counter = 0
 
             model_to_save = model.module if isinstance(model, torch.nn.DataParallel) else model
             torch.save(model_to_save, os.path.join(args.path, 'final_model'))
 
-            logging.info('Model Saved')
+            logging.info('Model Saved - New best loss: {:.5e}'.format(best_loss))
+        else:
+            patience_counter += 1
+            logging.info('No improvement. Patience: {}/{}'.format(patience_counter, args.patience if args.patience > 0 else 'disabled'))
+
+        # Early stopping check
+        if args.patience > 0 and patience_counter >= args.patience:
+            logging.info(f'Early stopping triggered after {epoch} epochs (patience={args.patience})')
+            logging.info(f'Best loss: {best_loss:.5e}')
+            break
+
         if epoch % 10 == 0 or epoch in [args.epochs]:
             test(model, device, test_dataloader_list, ps_test)
 
@@ -458,6 +472,12 @@ if __name__ == '__main__':
     parser.add_argument('--device', type=str, default='auto',
                         choices=['auto', 'cpu', 'cuda', 'xpu'],
                         help='Device to use: auto (default), cpu, cuda, or xpu')
+
+    # Early stopping args
+    parser.add_argument('--patience', type=int, default=0,
+                        help='Early stopping patience (epochs). 0 = disabled (default)')
+    parser.add_argument('--min_delta', type=float, default=0.0,
+                        help='Minimum change in loss to qualify as improvement')
 
     # Code args
     parser.add_argument('--code_type', type=str, default='surface',choices=['surface'])
