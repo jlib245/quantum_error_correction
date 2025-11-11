@@ -425,7 +425,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='PyTorch DQEC - Transformer')
     parser.add_argument('--epochs', type=int, default=200)
     parser.add_argument('--workers', type=int, default=4)
-    parser.add_argument('--lr', type=float, default=0.01)
+    parser.add_argument('--lr', type=float, default=0.001)
     parser.add_argument('--gpus', type=str, default='0', help='gpus ids')
     parser.add_argument('--batch_size', type=int, default=128)
     parser.add_argument('--test_batch_size', type=int, default=512)
