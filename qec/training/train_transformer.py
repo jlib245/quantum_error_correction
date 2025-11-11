@@ -410,7 +410,8 @@ def main(args):
     # OPTIMIZED: Add prefetch_factor for better pipeline (1.2-1.5x faster)
     prefetch = 2 if args.workers > 0 else None
 
-    train_dataloader = DataLoader(QECC_Dataset(code, x_error_basis_dict, z_error_basis_dict, ps_train, len=args.batch_size * 1000, args=args), batch_size=int(args.batch_size),
+    # Fixed dataset size (100k samples per epoch, independent of batch size)
+    train_dataloader = DataLoader(QECC_Dataset(code, x_error_basis_dict, z_error_basis_dict, ps_train, len=100000, args=args), batch_size=int(args.batch_size),
                                   shuffle=True, num_workers=args.workers, persistent_workers=True, pin_memory=use_pin_memory, prefetch_factor=prefetch)
 
     test_dataloader_list = [DataLoader(QECC_Dataset(code, x_error_basis_dict, z_error_basis_dict, [ps_test[ii]], len=int(args.test_batch_size),args=args),
