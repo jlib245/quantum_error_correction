@@ -695,3 +695,52 @@ Training epoch 96, Batch 1000/1000: LR=5.40e-04, Loss=1.66168e-01 LER=6.052e-02
 ***Loss=1.66168e-01
 Epoch 96 Train Time 68.3983371257782s
 
+Training epoch 97, Batch 500/1000: LR=5.32e-04, Loss=1.64820e-01 LER=5.936e-02
+***Loss=1.64820e-01
+Training epoch 97, Batch 1000/1000: LR=5.32e-04, Loss=1.66356e-01 LER=5.974e-02
+***Loss=1.66356e-01
+Epoch 97 Train Time 67.61428546905518s
+
+Training epoch 98, Batch 500/1000: LR=5.24e-04, Loss=1.68062e-01 LER=6.105e-02
+***Loss=1.68062e-01
+Training epoch 98, Batch 1000/1000: LR=5.24e-04, Loss=1.68676e-01 LER=6.073e-02
+***Loss=1.68676e-01
+Epoch 98 Train Time 68.15042018890381s
+
+Training epoch 99, Batch 500/1000: LR=5.16e-04, Loss=1.67183e-01 LER=6.079e-02
+***Loss=1.67183e-01
+Training epoch 99, Batch 1000/1000: LR=5.16e-04, Loss=1.67720e-01 LER=6.113e-02
+***Loss=1.67720e-01
+Epoch 99 Train Time 70.28016495704651s
+
+Training epoch 100, Batch 500/1000: LR=5.08e-04, Loss=1.65228e-01 LER=5.983e-02
+***Loss=1.65228e-01
+Training epoch 100, Batch 1000/1000: LR=5.08e-04, Loss=1.65902e-01 LER=5.980e-02
+***Loss=1.65902e-01
+Epoch 100 Train Time 69.52025556564331s
+
+Test LER  p=7.00e-02: 3.49e-02 p=8.00e-02: 4.54e-02 p=9.00e-02: 6.03e-02 p=1.00e-01: 7.79e-02 p=1.10e-01: 9.55e-02
+Mean LER = 6.282e-02
+# of testing samples: [100352.0, 100352.0, 100352.0, 100352.0, 100352.0]
+ Test Time 127.24921536445618 s
+
+Training epoch 101, Batch 500/1000: LR=5.01e-04, Loss=1.65908e-01 LER=6.038e-02
+***Loss=1.65908e-01
+Training epoch 101, Batch 1000/1000: LR=5.01e-04, Loss=1.67371e-01 LER=6.062e-02
+***Loss=1.67371e-01
+Epoch 101 Train Time 64.74323654174805s
+
+Training epoch 102, Batch 500/1000: LR=4.93e-04, Loss=1.67201e-01 LER=5.981e-02
+***Loss=1.67201e-01
+Training epoch 102, Batch 1000/1000: LR=4.93e-04, Loss=1.67357e-01 LER=6.021e-02
+***Loss=1.67357e-01
+Epoch 102 Train Time 67.91050124168396s
+
+Training epoch 103, Batch 500/1000: LR=4.85e-04, Loss=1.68261e-01 LER=6.110e-02
+***Loss=1.68261e-01
+Training epoch 103, Batch 1000/1000: LR=4.85e-04, Loss=1.67915e-01 LER=6.049e-02
+***Loss=1.67915e-01
+Epoch 103 Train Time 70.04877972602844s
+
+Training epoch 104, Batch 500/1000: LR=4.77e-04, Loss=1.66102e-01 LER=5.971e-02
+***Loss=1.66102e-01

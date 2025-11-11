@@ -310,7 +310,7 @@ def train(model, device, train_loader, optimizer, epoch, LR):
     return cum_loss / cum_samples, cum_ber / cum_samples, cum_ler / cum_samples
 
 
-def test(model, device, test_loader_list, ps_range_test, cum_count_lim=100000):
+def test(model, device, test_loader_list, ps_range_test, cum_count_lim=10000):
     model.eval()
     test_loss_ber_list, test_loss_ler_list, cum_samples_all = [], [], []
     t = time.time()
