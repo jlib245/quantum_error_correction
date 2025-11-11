@@ -401,7 +401,7 @@ def main(args):
     logging.info(model)
     logging.info(f'# of Parameters: {np.sum([np.prod(p.shape) for p in model.parameters()])}')
 
-    ps_train = [0.09]
+    ps_train = [0.07, 0.08, 0.09, 0.1, 0.11]  # Train on all error rates
     ps_test = [0.07, 0.08, 0.09, 0.1, 0.11]
 
     # pin_memory=True for faster CPU->GPU data transfer (CUDA and XPU)
