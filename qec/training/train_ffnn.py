@@ -387,11 +387,14 @@ def main(args):
     ps_train = [0.09]
     ps_test = [0.07, 0.08, 0.09, 0.1, 0.11]
 
+    # pin_memory=True for faster CPU->GPU data transfer
+    use_pin_memory = device.type == 'cuda'
+
     train_dataloader = DataLoader(QECC_Dataset(code, x_error_basis_dict, z_error_basis_dict, ps_train, len=args.batch_size * 1000, args=args), batch_size=int(args.batch_size),
-                                  shuffle=True, num_workers=args.workers, persistent_workers=True)
+                                  shuffle=True, num_workers=args.workers, persistent_workers=True, pin_memory=use_pin_memory)
 
     test_dataloader_list = [DataLoader(QECC_Dataset(code, x_error_basis_dict, z_error_basis_dict, [ps_test[ii]], len=int(args.test_batch_size),args=args),
-                                       batch_size=int(args.test_batch_size), shuffle=False, num_workers=args.workers) for ii in range(len(ps_test))]
+                                       batch_size=int(args.test_batch_size), shuffle=False, num_workers=args.workers, persistent_workers=True, pin_memory=use_pin_memory) for ii in range(len(ps_test))]
 
     best_loss = float('inf')
     for epoch in range(1, args.epochs + 1):
@@ -418,7 +421,7 @@ def main(args):
     ps_test = [0.07, 0.08, 0.09, 0.1, 0.11]
 
     test_dataloader_list = [DataLoader(QECC_Dataset(code, x_error_basis_dict, z_error_basis_dict, [ps_test[ii]], len=int(args.test_batch_size),args=args),
-                                       batch_size=int(args.test_batch_size), shuffle=False, num_workers=args.workers) for ii in range(len(ps_test))]
+                                       batch_size=int(args.test_batch_size), shuffle=False, num_workers=args.workers, persistent_workers=True, pin_memory=use_pin_memory) for ii in range(len(ps_test))]
 
     test(model, device, test_dataloader_list, ps_test)
 
