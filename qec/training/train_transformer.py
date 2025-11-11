@@ -430,7 +430,7 @@ if __name__ == '__main__':
 
     # Code args
     parser.add_argument('--code_type', type=str, default='surface',choices=['surface'])
-    parser.add_argument('--code_L', type=int, default=3,help='Lattice length')
+    parser.add_argument('-L', '--code_L', type=int, default=3,help='Lattice length')
     parser.add_argument('--repetitions', type=int, default=1,help='Number of faulty repetitions. <=1 is equivalent to none.')
     parser.add_argument('--noise_type', type=str,default='independent', choices=['independent','depolarization'],help='Noise model')
     parser.add_argument('-y', '--y_ratio', type=float, default=0.0,
