@@ -70,8 +70,22 @@ class StimSurfaceCodeDataset(Dataset):
 def train_with_stim(args):
     """Train Transformer with Stim-generated data"""
 
-    # Setup
-    device = torch.device(args.device if torch.cuda.is_available() else 'cpu')
+    # Setup device
+    if args.device == 'cuda':
+        if not torch.cuda.is_available():
+            print("Warning: CUDA not available, using CPU")
+            device = torch.device('cpu')
+        else:
+            device = torch.device('cuda')
+    elif args.device == 'xpu':
+        if hasattr(torch, 'xpu') and torch.xpu.is_available():
+            device = torch.device('xpu')
+        else:
+            print("Warning: XPU not available, using CPU")
+            device = torch.device('cpu')
+    else:
+        device = torch.device('cpu')
+
     print(f"Using device: {device}")
 
     # Create dataset
@@ -96,7 +110,8 @@ def train_with_stim(args):
     model_args.d_model = args.d_model
     model_args.h = args.h
     model_args.N_dec = args.N_dec
-    model_args.no_mask = 0
+    model_args.no_mask = args.no_mask
+    model_args.no_g = args.no_g
 
     # Dummy code object for model initialization
     class Code:
@@ -198,6 +213,10 @@ if __name__ == "__main__":
                         help='Early stopping patience (0 = disabled)')
     parser.add_argument('--min_delta', type=float, default=0.0,
                         help='Minimum loss improvement for early stopping')
+    parser.add_argument('--no_g', type=int, default=0,
+                        help='Disable gauge fixing (default: 0=enabled)')
+    parser.add_argument('--no_mask', type=int, default=0,
+                        help='Disable masking (default: 0=enabled)')
 
     args = parser.parse_args()
 
