@@ -48,17 +48,17 @@ Output:
 
 | Parameter | Default | Description |
 |-----------|---------|-------------|
-| `-L, --code_L` | 3 | Code distance |
-| `--epochs` | 100 | Maximum training epochs |
-| `--batch_size` | 128 | Batch size (GPU: 256 추천) |
+| `-L, --code_L` | 5 | Code distance |
+| `--epochs` | 300 | Maximum training epochs |
+| `--batch_size` | 1024 | Batch size |
 | `--lr` | 0.001 | Learning rate |
-| `--patience` | 20 | Early stopping patience (0=disabled) |
+| `--patience` | 40 | Early stopping patience (0=disabled) |
 | `--min_delta` | 0.0 | Minimum loss improvement |
-| `--workers` | 4 | Data loading workers (8 추천) |
+| `--workers` | 8 | Data loading workers |
 | `--device` | cuda | Device (cpu/cuda/xpu) |
-| `--d_model` | 128 | Transformer dimension |
+| `--d_model` | 256 | Transformer dimension |
 | `--h` | 16 | Attention heads |
-| `--N_dec` | 6 | Decoder layers |
+| `--N_dec` | 10 | Decoder layers |
 | `--error_rates` | 0.07-0.11 | Training error rates |
 
 ### compare_decoders_stim.py

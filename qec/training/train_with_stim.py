@@ -170,29 +170,29 @@ def train_with_stim(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('-L', '--code_L', type=int, default=3,
+    parser.add_argument('-L', '--code_L', type=int, default=5,
                         help='Code distance')
-    parser.add_argument('--epochs', type=int, default=100,
+    parser.add_argument('--epochs', type=int, default=300,
                         help='Maximum training epochs')
-    parser.add_argument('--batch_size', type=int, default=128,
+    parser.add_argument('--batch_size', type=int, default=1024,
                         help='Batch size')
     parser.add_argument('--lr', type=float, default=0.001,
                         help='Learning rate')
-    parser.add_argument('--workers', type=int, default=4,
+    parser.add_argument('--workers', type=int, default=8,
                         help='Number of data loading workers')
     parser.add_argument('--device', type=str, default='cuda',
                         choices=['cpu', 'cuda', 'xpu'],
                         help='Device to use')
-    parser.add_argument('--d_model', type=int, default=128,
+    parser.add_argument('--d_model', type=int, default=256,
                         help='Transformer model dimension')
     parser.add_argument('--h', type=int, default=16,
                         help='Number of attention heads')
-    parser.add_argument('--N_dec', type=int, default=6,
+    parser.add_argument('--N_dec', type=int, default=10,
                         help='Number of decoder layers')
     parser.add_argument('--error_rates', type=float, nargs='+',
                         default=[0.07, 0.08, 0.09, 0.10, 0.11],
                         help='Error rates for training')
-    parser.add_argument('--patience', type=int, default=20,
+    parser.add_argument('--patience', type=int, default=40,
                         help='Early stopping patience (0 = disabled)')
     parser.add_argument('--min_delta', type=float, default=0.0,
                         help='Minimum loss improvement for early stopping')
