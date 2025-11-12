@@ -119,6 +119,7 @@ def train_with_stim(args):
     os.makedirs(model_dir, exist_ok=True)
 
     best_loss = float('inf')
+    patience_counter = 0
 
     for epoch in range(1, args.epochs + 1):
         model.train()
@@ -147,29 +148,54 @@ def train_with_stim(args):
 
         print(f"Epoch {epoch}/{args.epochs}: Loss={avg_loss:.4f}, Acc={accuracy:.4f}")
 
-        # Save best model
-        if avg_loss < best_loss:
+        # Save best model and check early stopping
+        if avg_loss < best_loss - args.min_delta:
             best_loss = avg_loss
+            patience_counter = 0
             torch.save(model, os.path.join(model_dir, 'best_model'))
             print(f"  → Saved best model (loss={avg_loss:.4f})")
+        else:
+            patience_counter += 1
+            print(f"  No improvement. Patience: {patience_counter}/{args.patience}")
+
+        # Early stopping
+        if args.patience > 0 and patience_counter >= args.patience:
+            print(f"\nEarly stopping triggered after {epoch} epochs (patience={args.patience})")
+            break
 
     print(f"\nTraining complete! Model saved to: {model_dir}")
+    print(f"Best loss: {best_loss:.4f}")
     return model_dir
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('-L', '--code_L', type=int, default=3)
-    parser.add_argument('--epochs', type=int, default=100)
-    parser.add_argument('--batch_size', type=int, default=128)
-    parser.add_argument('--lr', type=float, default=0.001)
-    parser.add_argument('--workers', type=int, default=4)
-    parser.add_argument('--device', type=str, default='cuda')
-    parser.add_argument('--d_model', type=int, default=128)
-    parser.add_argument('--h', type=int, default=16)
-    parser.add_argument('--N_dec', type=int, default=6)
+    parser.add_argument('-L', '--code_L', type=int, default=3,
+                        help='Code distance')
+    parser.add_argument('--epochs', type=int, default=100,
+                        help='Maximum training epochs')
+    parser.add_argument('--batch_size', type=int, default=128,
+                        help='Batch size')
+    parser.add_argument('--lr', type=float, default=0.001,
+                        help='Learning rate')
+    parser.add_argument('--workers', type=int, default=4,
+                        help='Number of data loading workers')
+    parser.add_argument('--device', type=str, default='cuda',
+                        choices=['cpu', 'cuda', 'xpu'],
+                        help='Device to use')
+    parser.add_argument('--d_model', type=int, default=128,
+                        help='Transformer model dimension')
+    parser.add_argument('--h', type=int, default=16,
+                        help='Number of attention heads')
+    parser.add_argument('--N_dec', type=int, default=6,
+                        help='Number of decoder layers')
     parser.add_argument('--error_rates', type=float, nargs='+',
-                        default=[0.07, 0.08, 0.09, 0.10, 0.11])
+                        default=[0.07, 0.08, 0.09, 0.10, 0.11],
+                        help='Error rates for training')
+    parser.add_argument('--patience', type=int, default=20,
+                        help='Early stopping patience (0 = disabled)')
+    parser.add_argument('--min_delta', type=float, default=0.0,
+                        help='Minimum loss improvement for early stopping')
 
     args = parser.parse_args()
 
