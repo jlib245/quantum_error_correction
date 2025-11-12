@@ -16,6 +16,17 @@ import logging
 from qec.models.transformer import ECC_Transformer
 
 
+# Define these classes at module level for pickling
+class ModelArgs:
+    """Model arguments for ECC_Transformer"""
+    pass
+
+
+class Code:
+    """Dummy code object for model initialization"""
+    pass
+
+
 class StimSurfaceCodeDataset(Dataset):
     """Dataset using Stim for syndrome generation"""
 
@@ -103,10 +114,7 @@ def train_with_stim(args):
     )
 
     # Create model
-    class Args:
-        pass
-
-    model_args = Args()
+    model_args = ModelArgs()
     model_args.d_model = args.d_model
     model_args.h = args.h
     model_args.N_dec = args.N_dec
@@ -114,9 +122,6 @@ def train_with_stim(args):
     model_args.no_g = args.no_g
 
     # Dummy code object for model initialization
-    class Code:
-        pass
-
     code = Code()
     code.pc_matrix = torch.zeros(train_dataset.syndrome_dim, 1)  # Dummy
 
