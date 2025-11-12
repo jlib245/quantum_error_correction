@@ -10,20 +10,22 @@ Simple workflow for training and evaluating QEC decoders with Stim.
 ### Evaluation
 - `qec/evaluation/compare_decoders_stim.py` - Compare Transformer vs MWPM with Stim
 
-## Quick Start (GPU 추천)
+## Quick Start (GPU 필수)
 
-### Step 1: Train (L=5, Early Stopping)
+### Step 1: Train (L=5, 기본 설정)
 
 ```bash
-python -m qec.training.train_with_stim \
-    -L 5 \
-    --epochs 100 \
-    --batch_size 256 \
-    --patience 20 \
-    --device xpu
+# 기본 설정 (대형 모델: d_model=256, N_dec=10, batch=1024)
+python -m qec.training.train_with_stim --device xpu
 ```
 
 Output: `Stim_Models/L5_{timestamp}/best_model`
+
+**기본 설정**:
+- L=5, epochs=300 (early stopping patience=40)
+- d_model=256, N_dec=10, h=16
+- batch_size=1024, workers=8
+- 예상 시간: 1-2시간 (A100 기준)
 
 ### Step 2: Evaluate (50k shots)
 
@@ -78,35 +80,49 @@ Output:
 
 ## Distance별 추천 설정 (GPU)
 
-### L=3 (Quick Test)
+### L=3 (Quick Test - 작은 모델)
 ```bash
-# Train (~10분)
+# Train (~20분, 작은 모델)
 python -m qec.training.train_with_stim \
-    -L 3 --epochs 50 --batch_size 512 --patience 15 --device xpu
+    -L 3 \
+    --d_model 128 \
+    --N_dec 6 \
+    --batch_size 512 \
+    --epochs 100 \
+    --patience 20 \
+    --device xpu
 
 # Eval (~3분)
 python -m qec.evaluation.compare_decoders_stim \
     -L 3 --transformer_model <model> -p 0.07 0.08 0.09 -n 30000 --device xpu
 ```
 
-### L=5 (Standard)
+### L=5 (Standard - 기본 설정)
 ```bash
-# Train (~30분)
-python -m qec.training.train_with_stim \
-    -L 5 --epochs 100 --batch_size 256 --patience 20 --device xpu
+# Train (~1-2시간, 대형 모델)
+python -m qec.training.train_with_stim --device xpu
+# 또는 명시적으로:
+# python -m qec.training.train_with_stim \
+#     -L 5 --d_model 256 --N_dec 10 --batch_size 1024 --device xpu
 
-# Eval (~8분)
+# Eval (~10분)
 python -m qec.evaluation.compare_decoders_stim \
     -L 5 --transformer_model <model> -p 0.07 0.08 0.09 0.10 0.11 -n 50000 --device xpu
 ```
 
-### L=7 (Research)
+### L=7 (Research - 초대형 모델)
 ```bash
-# Train (~2시간)
+# Train (~3-4시간, 초대형 모델)
 python -m qec.training.train_with_stim \
-    -L 7 --epochs 150 --batch_size 128 --patience 25 --lr 0.0005 --device xpu
+    -L 7 \
+    --d_model 256 \
+    --N_dec 12 \
+    --batch_size 512 \
+    --epochs 300 \
+    --patience 50 \
+    --device xpu
 
-# Eval (~30분)
+# Eval (~40분)
 python -m qec.evaluation.compare_decoders_stim \
     -L 7 --transformer_model <model> -p 0.08 0.09 0.10 0.11 0.12 -n 100000 --device xpu
 ```
@@ -115,20 +131,23 @@ python -m qec.evaluation.compare_decoders_stim \
 
 ## Early Stopping 설명
 
-- `--patience 20`: 20 epoch 동안 loss 개선 없으면 중단
+- `--patience 40` (기본값): 40 epoch 동안 loss 개선 없으면 중단
 - `--min_delta 0.0`: 개선 최소 임계값 (보통 0.0 사용)
+- 기존 `train_transformer.py`와 동일한 설정
 
 **예시**:
 ```
-Epoch 45: Loss=0.2341, Acc=0.9123
+Epoch 125: Loss=0.2341, Acc=0.9123
   → Saved best model (loss=0.2341)
-Epoch 46: Loss=0.2345, Acc=0.9119
-  No improvement. Patience: 1/20
+Epoch 126: Loss=0.2345, Acc=0.9119
+  No improvement. Patience: 1/40
 ...
-Epoch 65: Loss=0.2343, Acc=0.9120
-  No improvement. Patience: 20/20
+Epoch 165: Loss=0.2343, Acc=0.9120
+  No improvement. Patience: 40/40
 
-Early stopping triggered after 65 epochs (patience=20)
+Early stopping triggered after 165 epochs (patience=40)
 Training complete! Model saved to: Stim_Models/L5_xxx
 Best loss: 0.2341
 ```
+
+**참고**: 기존 모델 로그와 동일한 patience=40 사용
