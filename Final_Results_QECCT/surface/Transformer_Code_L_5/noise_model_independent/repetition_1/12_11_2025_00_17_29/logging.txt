@@ -744,3 +744,21 @@ Epoch 103 Train Time 70.04877972602844s
 
 Training epoch 104, Batch 500/1000: LR=4.77e-04, Loss=1.66102e-01 LER=5.971e-02
 ***Loss=1.66102e-01
+Training epoch 104, Batch 1000/1000: LR=4.77e-04, Loss=1.67682e-01 LER=6.041e-02
+***Loss=1.67682e-01
+Epoch 104 Train Time 66.7759690284729s
+
+Training epoch 105, Batch 500/1000: LR=4.69e-04, Loss=1.69203e-01 LER=6.087e-02
+***Loss=1.69203e-01
+Training epoch 105, Batch 1000/1000: LR=4.69e-04, Loss=1.68718e-01 LER=6.096e-02
+***Loss=1.68718e-01
+Epoch 105 Train Time 71.05564379692078s
+
+Training epoch 106, Batch 500/1000: LR=4.61e-04, Loss=1.67670e-01 LER=5.980e-02
+***Loss=1.67670e-01
+Training epoch 106, Batch 1000/1000: LR=4.61e-04, Loss=1.67123e-01 LER=5.975e-02
+***Loss=1.67123e-01
+Epoch 106 Train Time 65.8243567943573s
+
+Training epoch 107, Batch 500/1000: LR=4.53e-04, Loss=1.64738e-01 LER=5.888e-02
+***Loss=1.64738e-01

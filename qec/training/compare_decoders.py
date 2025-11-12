@@ -8,6 +8,7 @@ import numpy as np
 from datetime import datetime
 import logging
 from pathlib import Path
+import matplotlib.pyplot as plt
 
 from qec.core.codes import Get_surface_Code
 from qec.decoders.mwpm import MWPM_Decoder
@@ -262,6 +263,77 @@ def print_comparison_table(results_dict):
     logging.info("="*80)
 
 
+def plot_comparison_graphs(results_dict, save_dir, L, y_ratio):
+    """Plot and save LER and PER comparison graphs."""
+    # Get all p values
+    p_values = sorted(list(next(iter(results_dict.values())).keys()))
+
+    # Create figure with 2 subplots
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 5))
+
+    # Color and marker styles for different decoders
+    styles = {
+        'MWPM': {'color': 'blue', 'marker': 'o', 'linestyle': '-'},
+        'Transformer': {'color': 'red', 'marker': 's', 'linestyle': '--'},
+        'FFNN': {'color': 'green', 'marker': '^', 'linestyle': '-.'}
+    }
+
+    # Plot LER (Logical Error Rate)
+    for decoder_name, results in results_dict.items():
+        lers = [results[p]['ler'] for p in p_values]
+        style = styles.get(decoder_name, {'color': 'black', 'marker': 'x', 'linestyle': '-'})
+        ax1.plot(p_values, lers,
+                label=decoder_name,
+                color=style['color'],
+                marker=style['marker'],
+                linestyle=style['linestyle'],
+                linewidth=2,
+                markersize=8)
+
+    ax1.set_xlabel('Physical Error Rate (p)', fontsize=12)
+    ax1.set_ylabel('Logical Error Rate (LER)', fontsize=12)
+    ax1.set_title(f'Logical Error Rate Comparison (L={L}, y_ratio={y_ratio})', fontsize=13, fontweight='bold')
+    ax1.grid(True, alpha=0.3)
+    ax1.legend(fontsize=10)
+    ax1.set_yscale('log')
+
+    # Plot PER (Physical Error Rate vs LER - threshold visualization)
+    for decoder_name, results in results_dict.items():
+        lers = [results[p]['ler'] for p in p_values]
+        style = styles.get(decoder_name, {'color': 'black', 'marker': 'x', 'linestyle': '-'})
+        ax2.plot(p_values, lers,
+                label=decoder_name,
+                color=style['color'],
+                marker=style['marker'],
+                linestyle=style['linestyle'],
+                linewidth=2,
+                markersize=8)
+
+    # Add reference line (y=x) to visualize sub-threshold regime
+    ax2.plot(p_values, p_values, 'k:', label='y=x (threshold ref)', linewidth=1.5)
+
+    ax2.set_xlabel('Physical Error Rate (p)', fontsize=12)
+    ax2.set_ylabel('Logical Error Rate (LER)', fontsize=12)
+    ax2.set_title(f'Error Rate vs Threshold (L={L}, y_ratio={y_ratio})', fontsize=13, fontweight='bold')
+    ax2.grid(True, alpha=0.3)
+    ax2.legend(fontsize=10)
+    ax2.set_xscale('log')
+    ax2.set_yscale('log')
+
+    plt.tight_layout()
+
+    # Save plot
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    plot_file = os.path.join(save_dir, f'comparison_plot_{timestamp}.png')
+    plt.savefig(plot_file, dpi=300, bbox_inches='tight')
+    logging.info(f"\nPlot saved to: {plot_file}")
+
+    # Close the figure to free memory
+    plt.close(fig)
+
+    return plot_file
+
+
 def main(args):
     # Setup experiment directory
     exp_dir = get_experiment_dir(args.L, args.y_ratio)
@@ -313,6 +385,9 @@ def main(args):
     # Print comparison
     if all_results:
         print_comparison_table(all_results)
+
+        # Plot comparison graphs
+        plot_comparison_graphs(all_results, exp_dir, args.L, args.y_ratio)
     else:
         logging.error("No results to compare!")
 

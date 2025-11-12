@@ -1,0 +1,145 @@
+Decoder Comparison Script
+Code distance L=5
+Y-ratio: 0.3
+Test shots per p: 10000
+Error rates: [0.01, 0.02, 0.03, 0.04, 0.05, 0.06, 0.07, 0.08, 0.09, 0.1, 0.11]
+Device: cpu
+Code loaded: n_qubits=25
+
+============================================================
+MWPM Decoder Evaluation
+============================================================
+
+Testing p=0.010...
+  LER: 0.000000e+00
+  Avg Latency: 0.009752 ms
+  Logical Errors: 0/10000
+
+Testing p=0.020...
+  LER: 1.500000e-03
+  Avg Latency: 0.009110 ms
+  Logical Errors: 15/10000
+
+Testing p=0.030...
+  LER: 2.500000e-03
+  Avg Latency: 0.008881 ms
+  Logical Errors: 25/10000
+
+Testing p=0.040...
+  LER: 8.500000e-03
+  Avg Latency: 0.009301 ms
+  Logical Errors: 85/10000
+
+Testing p=0.050...
+  LER: 1.390000e-02
+  Avg Latency: 0.008546 ms
+  Logical Errors: 139/10000
+
+Testing p=0.060...
+  LER: 2.600000e-02
+  Avg Latency: 0.009236 ms
+  Logical Errors: 260/10000
+
+Testing p=0.070...
+  LER: 3.840000e-02
+  Avg Latency: 0.010459 ms
+  Logical Errors: 384/10000
+
+Testing p=0.080...
+  LER: 5.500000e-02
+  Avg Latency: 0.009171 ms
+  Logical Errors: 550/10000
+
+Testing p=0.090...
+  LER: 6.960000e-02
+  Avg Latency: 0.008538 ms
+  Logical Errors: 696/10000
+
+Testing p=0.100...
+  LER: 9.150000e-02
+  Avg Latency: 0.008816 ms
+  Logical Errors: 915/10000
+
+Testing p=0.110...
+  LER: 1.129000e-01
+  Avg Latency: 0.008375 ms
+  Logical Errors: 1129/10000
+
+============================================================
+TRANSFORMER Model Evaluation
+============================================================
+Model path: Final_Results_QECCT/surface/Transformer_Code_L_5/noise_model_independent/repetition_1/12_11_2025_22_20_35/best_model.zip
+Model loaded successfully (full model)
+
+Testing p=0.010...
+  LER: 0.000000e+00
+  Avg Latency: 4.596793 ms
+  Logical Errors: 0/10000
+
+Testing p=0.020...
+  LER: 5.000000e-04
+  Avg Latency: 4.264456 ms
+  Logical Errors: 5/10000
+
+Testing p=0.030...
+  LER: 2.200000e-03
+  Avg Latency: 4.310989 ms
+  Logical Errors: 22/10000
+
+Testing p=0.040...
+  LER: 5.400000e-03
+  Avg Latency: 4.456073 ms
+  Logical Errors: 54/10000
+
+Testing p=0.050...
+  LER: 1.120000e-02
+  Avg Latency: 4.612423 ms
+  Logical Errors: 112/10000
+
+Testing p=0.060...
+  LER: 1.770000e-02
+  Avg Latency: 4.318622 ms
+  Logical Errors: 177/10000
+
+Testing p=0.070...
+  LER: 2.870000e-02
+  Avg Latency: 4.173490 ms
+  Logical Errors: 287/10000
+
+Testing p=0.080...
+  LER: 3.690000e-02
+  Avg Latency: 4.280100 ms
+  Logical Errors: 369/10000
+
+Testing p=0.090...
+  LER: 5.050000e-02
+  Avg Latency: 4.255377 ms
+  Logical Errors: 505/10000
+
+Testing p=0.100...
+  LER: 7.000000e-02
+  Avg Latency: 4.293107 ms
+  Logical Errors: 700/10000
+
+Testing p=0.110...
+  LER: 9.080000e-02
+  Avg Latency: 4.345146 ms
+  Logical Errors: 908/10000
+
+================================================================================
+COMPARISON SUMMARY
+================================================================================
+p_error     MWPM LER            MWPM Latency(ms)         Transformer LER     Transformer Latency(ms)  
+--------------------------------------------------------------------------------
+0.010       0.000000e+00        0.009752                 0.000000e+00        4.596793                 
+0.020       1.500000e-03        0.009110                 5.000000e-04        4.264456                 
+0.030       2.500000e-03        0.008881                 2.200000e-03        4.310989                 
+0.040       8.500000e-03        0.009301                 5.400000e-03        4.456073                 
+0.050       1.390000e-02        0.008546                 1.120000e-02        4.612423                 
+0.060       2.600000e-02        0.009236                 1.770000e-02        4.318622                 
+0.070       3.840000e-02        0.010459                 2.870000e-02        4.173490                 
+0.080       5.500000e-02        0.009171                 3.690000e-02        4.280100                 
+0.090       6.960000e-02        0.008538                 5.050000e-02        4.255377                 
+0.100       9.150000e-02        0.008816                 7.000000e-02        4.293107                 
+0.110       1.129000e-01        0.008375                 9.080000e-02        4.345146                 
+================================================================================

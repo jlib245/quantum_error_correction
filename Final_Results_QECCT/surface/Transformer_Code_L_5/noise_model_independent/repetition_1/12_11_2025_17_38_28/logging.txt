@@ -1,0 +1,1731 @@
+Path to model/logs: Final_Results_QECCT/surface/Transformer_Code_L_5/noise_model_independent/repetition_1/11_11_2025_17_38_28
+Namespace(epochs=250, workers=8, lr=0.001, gpus='0', batch_size=1024, test_batch_size=512, seed=42, device='cuda', patience=30, min_delta=0.0, code_type='surface', code_L=5, repetitions=1, noise_type='independent', y_ratio=0.3, N_dec=8, d_model=192, h=16, lambda_loss_ber=0.3, lambda_loss_ler=1.0, lambda_loss_n_pred=0.3, lambda_loss_log_pred=1, no_g=0, no_mask=0, code=<__main__.Code object at 0x79747c9a1640>, path='Final_Results_QECCT/surface/Transformer_Code_L_5/noise_model_independent/repetition_1/11_11_2025_17_38_28')
+NVIDIA GPU (CUDA)를 사용합니다: NVIDIA A100-SXM4-40GB
+PC matrix shape torch.Size([24, 50])
+ECC_Transformer(
+  (pos_encoder): PositionalEncoding(
+    (dropout): Dropout(p=0, inplace=False)
+  )
+  (encoder): Encoder(
+    (layers): ModuleList(
+      (0-7): 8 x EncoderLayer(
+        (self_attn): MultiHeadedAttention(
+          (linears): ModuleList(
+            (0-3): 4 x Linear(in_features=192, out_features=192, bias=True)
+          )
+          (dropout): Dropout(p=0.0, inplace=False)
+        )
+        (feed_forward): PositionwiseFeedForward(
+          (w_1): Linear(in_features=192, out_features=768, bias=True)
+          (w_2): Linear(in_features=768, out_features=192, bias=True)
+          (dropout): Dropout(p=0, inplace=False)
+        )
+        (sublayer): ModuleList(
+          (0-1): 2 x SublayerConnection(
+            (norm): LayerNorm((192,), eps=1e-05, elementwise_affine=True)
+            (dropout): Dropout(p=0, inplace=False)
+          )
+        )
+      )
+    )
+    (norm): LayerNorm((192,), eps=1e-05, elementwise_affine=True)
+    (norm2): LayerNorm((192,), eps=1e-05, elementwise_affine=True)
+  )
+  (input_embedding): Linear(in_features=24, out_features=192, bias=True)
+  (output_classifier): Linear(in_features=192, out_features=4, bias=True)
+  (criterion): CrossEntropyLoss()
+)
+# of Parameters: 3565252
+Training epoch 1, Batch 49/98: LR=1.00e-03, Loss=1.27972e+00 LER=5.610e-01
+***Loss=1.27972e+00
+Training epoch 1, Batch 98/98: LR=1.00e-03, Loss=1.20667e+00 LER=5.394e-01
+***Loss=1.20667e+00
+Epoch 1 Train Time 11.502458095550537s
+
+Model Saved - New best loss: 1.20667e+00
+Training epoch 2, Batch 49/98: LR=1.00e-03, Loss=8.16072e-01 LER=3.987e-01
+***Loss=8.16072e-01
+Training epoch 2, Batch 98/98: LR=1.00e-03, Loss=7.65997e-01 LER=3.590e-01
+***Loss=7.65997e-01
+Epoch 2 Train Time 10.883277654647827s
+
+Model Saved - New best loss: 7.65997e-01
+Training epoch 3, Batch 49/98: LR=1.00e-03, Loss=5.57685e-01 LER=2.252e-01
+***Loss=5.57685e-01
+Training epoch 3, Batch 98/98: LR=1.00e-03, Loss=5.06901e-01 LER=2.063e-01
+***Loss=5.06901e-01
+Epoch 3 Train Time 11.199354887008667s
+
+Model Saved - New best loss: 5.06901e-01
+Training epoch 4, Batch 49/98: LR=1.00e-03, Loss=3.98576e-01 LER=1.660e-01
+***Loss=3.98576e-01
+Training epoch 4, Batch 98/98: LR=1.00e-03, Loss=3.73119e-01 LER=1.521e-01
+***Loss=3.73119e-01
+Epoch 4 Train Time 10.9600350856781s
+
+Model Saved - New best loss: 3.73119e-01
+Training epoch 5, Batch 49/98: LR=9.99e-04, Loss=3.12876e-01 LER=1.220e-01
+***Loss=3.12876e-01
+Training epoch 5, Batch 98/98: LR=9.99e-04, Loss=3.05746e-01 LER=1.170e-01
+***Loss=3.05746e-01
+Epoch 5 Train Time 10.740087032318115s
+
+Model Saved - New best loss: 3.05746e-01
+Training epoch 6, Batch 49/98: LR=9.99e-04, Loss=2.76719e-01 LER=1.040e-01
+***Loss=2.76719e-01
+Training epoch 6, Batch 98/98: LR=9.99e-04, Loss=2.72643e-01 LER=1.022e-01
+***Loss=2.72643e-01
+Epoch 6 Train Time 10.995640516281128s
+
+Model Saved - New best loss: 2.72643e-01
+Training epoch 7, Batch 49/98: LR=9.99e-04, Loss=2.68189e-01 LER=9.841e-02
+***Loss=2.68189e-01
+Training epoch 7, Batch 98/98: LR=9.99e-04, Loss=2.62141e-01 LER=9.681e-02
+***Loss=2.62141e-01
+Epoch 7 Train Time 10.840938329696655s
+
+Model Saved - New best loss: 2.62141e-01
+Training epoch 8, Batch 49/98: LR=9.98e-04, Loss=2.46970e-01 LER=9.132e-02
+***Loss=2.46970e-01
+Training epoch 8, Batch 98/98: LR=9.98e-04, Loss=2.46388e-01 LER=9.088e-02
+***Loss=2.46388e-01
+Epoch 8 Train Time 10.882851600646973s
+
+Model Saved - New best loss: 2.46388e-01
+Training epoch 9, Batch 49/98: LR=9.97e-04, Loss=2.41604e-01 LER=8.915e-02
+***Loss=2.41604e-01
+Training epoch 9, Batch 98/98: LR=9.97e-04, Loss=2.39495e-01 LER=8.838e-02
+***Loss=2.39495e-01
+Epoch 9 Train Time 10.987034797668457s
+
+Model Saved - New best loss: 2.39495e-01
+Training epoch 10, Batch 49/98: LR=9.97e-04, Loss=2.37792e-01 LER=8.656e-02
+***Loss=2.37792e-01
+Training epoch 10, Batch 98/98: LR=9.97e-04, Loss=2.36541e-01 LER=8.549e-02
+***Loss=2.36541e-01
+Epoch 10 Train Time 10.972099781036377s
+
+Model Saved - New best loss: 2.36541e-01
+Test LER  p=7.00e-02: 4.77e-02 p=8.00e-02: 6.64e-02 p=9.00e-02: 8.10e-02 p=1.00e-01: 1.00e-01 p=1.10e-01: 1.27e-01
+Mean LER = 8.434e-02
+# of testing samples: [10240.0, 10240.0, 10240.0, 10240.0, 10240.0]
+ Test Time 31.15276861190796 s
+
+Training epoch 11, Batch 49/98: LR=9.96e-04, Loss=2.36364e-01 LER=8.713e-02
+***Loss=2.36364e-01
+Training epoch 11, Batch 98/98: LR=9.96e-04, Loss=2.33620e-01 LER=8.518e-02
+***Loss=2.33620e-01
+Epoch 11 Train Time 11.239430665969849s
+
+Model Saved - New best loss: 2.33620e-01
+Training epoch 12, Batch 49/98: LR=9.95e-04, Loss=2.29985e-01 LER=8.532e-02
+***Loss=2.29985e-01
+Training epoch 12, Batch 98/98: LR=9.95e-04, Loss=2.26415e-01 LER=8.317e-02
+***Loss=2.26415e-01
+Epoch 12 Train Time 11.147315502166748s
+
+Model Saved - New best loss: 2.26415e-01
+Training epoch 13, Batch 49/98: LR=9.94e-04, Loss=2.27724e-01 LER=8.307e-02
+***Loss=2.27724e-01
+Training epoch 13, Batch 98/98: LR=9.94e-04, Loss=2.24602e-01 LER=8.199e-02
+***Loss=2.24602e-01
+Epoch 13 Train Time 10.664994478225708s
+
+Model Saved - New best loss: 2.24602e-01
+Training epoch 14, Batch 49/98: LR=9.93e-04, Loss=2.28040e-01 LER=8.255e-02
+***Loss=2.28040e-01
+Training epoch 14, Batch 98/98: LR=9.93e-04, Loss=2.24971e-01 LER=8.124e-02
+***Loss=2.24971e-01
+Epoch 14 Train Time 11.417047262191772s
+
+No improvement. Patience: 1/30
+Training epoch 15, Batch 49/98: LR=9.92e-04, Loss=2.18001e-01 LER=8.052e-02
+***Loss=2.18001e-01
+Training epoch 15, Batch 98/98: LR=9.92e-04, Loss=2.18792e-01 LER=8.091e-02
+***Loss=2.18792e-01
+Epoch 15 Train Time 10.882830142974854s
+
+Model Saved - New best loss: 2.18792e-01
+Training epoch 16, Batch 49/98: LR=9.91e-04, Loss=2.17912e-01 LER=7.920e-02
+***Loss=2.17912e-01
+Training epoch 16, Batch 98/98: LR=9.91e-04, Loss=2.17553e-01 LER=7.918e-02
+***Loss=2.17553e-01
+Epoch 16 Train Time 11.106576681137085s
+
+Model Saved - New best loss: 2.17553e-01
+Training epoch 17, Batch 49/98: LR=9.90e-04, Loss=2.17262e-01 LER=8.149e-02
+***Loss=2.17262e-01
+Training epoch 17, Batch 98/98: LR=9.90e-04, Loss=2.14650e-01 LER=7.958e-02
+***Loss=2.14650e-01
+Epoch 17 Train Time 11.224369287490845s
+
+Model Saved - New best loss: 2.14650e-01
+Training epoch 18, Batch 49/98: LR=9.89e-04, Loss=2.19101e-01 LER=8.010e-02
+***Loss=2.19101e-01
+Training epoch 18, Batch 98/98: LR=9.89e-04, Loss=2.14286e-01 LER=7.866e-02
+***Loss=2.14286e-01
+Epoch 18 Train Time 10.981731653213501s
+
+Model Saved - New best loss: 2.14286e-01
+Training epoch 19, Batch 49/98: LR=9.87e-04, Loss=2.14492e-01 LER=7.974e-02
+***Loss=2.14492e-01
+Training epoch 19, Batch 98/98: LR=9.87e-04, Loss=2.14815e-01 LER=7.926e-02
+***Loss=2.14815e-01
+Epoch 19 Train Time 10.831528902053833s
+
+No improvement. Patience: 1/30
+Training epoch 20, Batch 49/98: LR=9.86e-04, Loss=2.12314e-01 LER=7.631e-02
+***Loss=2.12314e-01
+Training epoch 20, Batch 98/98: LR=9.86e-04, Loss=2.12337e-01 LER=7.672e-02
+***Loss=2.12337e-01
+Epoch 20 Train Time 10.926779985427856s
+
+Model Saved - New best loss: 2.12337e-01
+Test LER  p=7.00e-02: 4.26e-02 p=8.00e-02: 5.97e-02 p=9.00e-02: 7.79e-02 p=1.00e-01: 9.26e-02 p=1.10e-01: 1.13e-01
+Mean LER = 7.719e-02
+# of testing samples: [10240.0, 10240.0, 10240.0, 10240.0, 10240.0]
+ Test Time 30.528406381607056 s
+
+Training epoch 21, Batch 49/98: LR=9.84e-04, Loss=2.13775e-01 LER=7.675e-02
+***Loss=2.13775e-01
+Training epoch 21, Batch 98/98: LR=9.84e-04, Loss=2.12725e-01 LER=7.708e-02
+***Loss=2.12725e-01
+Epoch 21 Train Time 11.036051988601685s
+
+No improvement. Patience: 1/30
+Training epoch 22, Batch 49/98: LR=9.83e-04, Loss=2.09600e-01 LER=7.669e-02
+***Loss=2.09600e-01
+Training epoch 22, Batch 98/98: LR=9.83e-04, Loss=2.10453e-01 LER=7.749e-02
+***Loss=2.10453e-01
+Epoch 22 Train Time 10.969261884689331s
+
+Model Saved - New best loss: 2.10453e-01
+Training epoch 23, Batch 49/98: LR=9.81e-04, Loss=2.07211e-01 LER=7.635e-02
+***Loss=2.07211e-01
+Training epoch 23, Batch 98/98: LR=9.81e-04, Loss=2.05575e-01 LER=7.536e-02
+***Loss=2.05575e-01
+Epoch 23 Train Time 11.22490906715393s
+
+Model Saved - New best loss: 2.05575e-01
+Training epoch 24, Batch 49/98: LR=9.79e-04, Loss=2.08348e-01 LER=7.571e-02
+***Loss=2.08348e-01
+Training epoch 24, Batch 98/98: LR=9.79e-04, Loss=2.08963e-01 LER=7.612e-02
+***Loss=2.08963e-01
+Epoch 24 Train Time 11.102880239486694s
+
+No improvement. Patience: 1/30
+Training epoch 25, Batch 49/98: LR=9.77e-04, Loss=2.04139e-01 LER=7.370e-02
+***Loss=2.04139e-01
+Training epoch 25, Batch 98/98: LR=9.77e-04, Loss=2.06323e-01 LER=7.532e-02
+***Loss=2.06323e-01
+Epoch 25 Train Time 10.630330801010132s
+
+No improvement. Patience: 2/30
+Training epoch 26, Batch 49/98: LR=9.76e-04, Loss=2.10671e-01 LER=7.689e-02
+***Loss=2.10671e-01
+Training epoch 26, Batch 98/98: LR=9.76e-04, Loss=2.07196e-01 LER=7.513e-02
+***Loss=2.07196e-01
+Epoch 26 Train Time 11.055907487869263s
+
+No improvement. Patience: 3/30
+Training epoch 27, Batch 49/98: LR=9.74e-04, Loss=2.03267e-01 LER=7.316e-02
+***Loss=2.03267e-01
+Training epoch 27, Batch 98/98: LR=9.74e-04, Loss=2.01931e-01 LER=7.238e-02
+***Loss=2.01931e-01
+Epoch 27 Train Time 11.268319606781006s
+
+Model Saved - New best loss: 2.01931e-01
+Training epoch 28, Batch 49/98: LR=9.72e-04, Loss=2.05332e-01 LER=7.460e-02
+***Loss=2.05332e-01
+Training epoch 28, Batch 98/98: LR=9.72e-04, Loss=2.07054e-01 LER=7.548e-02
+***Loss=2.07054e-01
+Epoch 28 Train Time 11.020509958267212s
+
+No improvement. Patience: 1/30
+Training epoch 29, Batch 49/98: LR=9.69e-04, Loss=2.09745e-01 LER=7.591e-02
+***Loss=2.09745e-01
+Training epoch 29, Batch 98/98: LR=9.69e-04, Loss=2.09345e-01 LER=7.555e-02
+***Loss=2.09345e-01
+Epoch 29 Train Time 10.765868186950684s
+
+No improvement. Patience: 2/30
+Training epoch 30, Batch 49/98: LR=9.67e-04, Loss=2.05647e-01 LER=7.460e-02
+***Loss=2.05647e-01
+Training epoch 30, Batch 98/98: LR=9.67e-04, Loss=2.03495e-01 LER=7.367e-02
+***Loss=2.03495e-01
+Epoch 30 Train Time 10.903090238571167s
+
+No improvement. Patience: 3/30
+Test LER  p=7.00e-02: 4.00e-02 p=8.00e-02: 6.05e-02 p=9.00e-02: 7.40e-02 p=1.00e-01: 9.07e-02 p=1.10e-01: 1.11e-01
+Mean LER = 7.527e-02
+# of testing samples: [10240.0, 10240.0, 10240.0, 10240.0, 10240.0]
+ Test Time 30.678448915481567 s
+
+Training epoch 31, Batch 49/98: LR=9.65e-04, Loss=2.06755e-01 LER=7.382e-02
+***Loss=2.06755e-01
+Training epoch 31, Batch 98/98: LR=9.65e-04, Loss=2.02822e-01 LER=7.309e-02
+***Loss=2.02822e-01
+Epoch 31 Train Time 11.119213342666626s
+
+No improvement. Patience: 4/30
+Training epoch 32, Batch 49/98: LR=9.63e-04, Loss=2.03962e-01 LER=7.573e-02
+***Loss=2.03962e-01
+Training epoch 32, Batch 98/98: LR=9.63e-04, Loss=2.04128e-01 LER=7.556e-02
+***Loss=2.04128e-01
+Epoch 32 Train Time 11.222902059555054s
+
+No improvement. Patience: 5/30
+Training epoch 33, Batch 49/98: LR=9.60e-04, Loss=2.04866e-01 LER=7.440e-02
+***Loss=2.04866e-01
+Training epoch 33, Batch 98/98: LR=9.60e-04, Loss=2.03731e-01 LER=7.411e-02
+***Loss=2.03731e-01
+Epoch 33 Train Time 10.99189043045044s
+
+No improvement. Patience: 6/30
+Training epoch 34, Batch 49/98: LR=9.58e-04, Loss=2.05632e-01 LER=7.294e-02
+***Loss=2.05632e-01
+Training epoch 34, Batch 98/98: LR=9.58e-04, Loss=2.05081e-01 LER=7.300e-02
+***Loss=2.05081e-01
+Epoch 34 Train Time 11.153337001800537s
+
+No improvement. Patience: 7/30
+Training epoch 35, Batch 49/98: LR=9.55e-04, Loss=1.97449e-01 LER=7.109e-02
+***Loss=1.97449e-01
+Training epoch 35, Batch 98/98: LR=9.55e-04, Loss=2.00251e-01 LER=7.243e-02
+***Loss=2.00251e-01
+Epoch 35 Train Time 11.1791353225708s
+
+Model Saved - New best loss: 2.00251e-01
+Training epoch 36, Batch 49/98: LR=9.52e-04, Loss=2.05812e-01 LER=7.356e-02
+***Loss=2.05812e-01
+Training epoch 36, Batch 98/98: LR=9.52e-04, Loss=2.03429e-01 LER=7.313e-02
+***Loss=2.03429e-01
+Epoch 36 Train Time 11.2686288356781s
+
+No improvement. Patience: 1/30
+Training epoch 37, Batch 49/98: LR=9.50e-04, Loss=1.99271e-01 LER=7.318e-02
+***Loss=1.99271e-01
+Training epoch 37, Batch 98/98: LR=9.50e-04, Loss=1.99711e-01 LER=7.278e-02
+***Loss=1.99711e-01
+Epoch 37 Train Time 10.851363897323608s
+
+Model Saved - New best loss: 1.99711e-01
+Training epoch 38, Batch 49/98: LR=9.47e-04, Loss=1.98733e-01 LER=7.324e-02
+***Loss=1.98733e-01
+Training epoch 38, Batch 98/98: LR=9.47e-04, Loss=2.02182e-01 LER=7.413e-02
+***Loss=2.02182e-01
+Epoch 38 Train Time 10.8072509765625s
+
+No improvement. Patience: 1/30
+Training epoch 39, Batch 49/98: LR=9.44e-04, Loss=1.98234e-01 LER=7.075e-02
+***Loss=1.98234e-01
+Training epoch 39, Batch 98/98: LR=9.44e-04, Loss=1.95122e-01 LER=7.060e-02
+***Loss=1.95122e-01
+Epoch 39 Train Time 11.4802086353302s
+
+Model Saved - New best loss: 1.95122e-01
+Training epoch 40, Batch 49/98: LR=9.41e-04, Loss=1.98073e-01 LER=7.159e-02
+***Loss=1.98073e-01
+Training epoch 40, Batch 98/98: LR=9.41e-04, Loss=1.98674e-01 LER=7.168e-02
+***Loss=1.98674e-01
+Epoch 40 Train Time 11.081673860549927s
+
+No improvement. Patience: 1/30
+Test LER  p=7.00e-02: 4.02e-02 p=8.00e-02: 4.95e-02 p=9.00e-02: 6.98e-02 p=1.00e-01: 9.05e-02 p=1.10e-01: 1.09e-01
+Mean LER = 7.180e-02
+# of testing samples: [10240.0, 10240.0, 10240.0, 10240.0, 10240.0]
+ Test Time 30.486175060272217 s
+
+Training epoch 41, Batch 49/98: LR=9.38e-04, Loss=1.97324e-01 LER=7.125e-02
+***Loss=1.97324e-01
+Training epoch 41, Batch 98/98: LR=9.38e-04, Loss=1.96528e-01 LER=7.104e-02
+***Loss=1.96528e-01
+Epoch 41 Train Time 11.005716562271118s
+
+No improvement. Patience: 2/30
+Training epoch 42, Batch 49/98: LR=9.35e-04, Loss=1.97672e-01 LER=7.175e-02
+***Loss=1.97672e-01
+Training epoch 42, Batch 98/98: LR=9.35e-04, Loss=1.97057e-01 LER=7.064e-02
+***Loss=1.97057e-01
+Epoch 42 Train Time 11.01494836807251s
+
+No improvement. Patience: 3/30
+Training epoch 43, Batch 49/98: LR=9.32e-04, Loss=1.94647e-01 LER=7.025e-02
+***Loss=1.94647e-01
+Training epoch 43, Batch 98/98: LR=9.32e-04, Loss=1.94103e-01 LER=7.042e-02
+***Loss=1.94103e-01
+Epoch 43 Train Time 11.315775394439697s
+
+Model Saved - New best loss: 1.94103e-01
+Training epoch 44, Batch 49/98: LR=9.29e-04, Loss=1.98745e-01 LER=7.095e-02
+***Loss=1.98745e-01
+Training epoch 44, Batch 98/98: LR=9.29e-04, Loss=2.00469e-01 LER=7.164e-02
+***Loss=2.00469e-01
+Epoch 44 Train Time 10.824747323989868s
+
+No improvement. Patience: 1/30
+Training epoch 45, Batch 49/98: LR=9.26e-04, Loss=2.02978e-01 LER=7.324e-02
+***Loss=2.02978e-01
+Training epoch 45, Batch 98/98: LR=9.26e-04, Loss=1.98322e-01 LER=7.163e-02
+***Loss=1.98322e-01
+Epoch 45 Train Time 10.916139125823975s
+
+No improvement. Patience: 2/30
+Training epoch 46, Batch 49/98: LR=9.22e-04, Loss=2.02160e-01 LER=7.288e-02
+***Loss=2.02160e-01
+Training epoch 46, Batch 98/98: LR=9.22e-04, Loss=1.97928e-01 LER=7.162e-02
+***Loss=1.97928e-01
+Epoch 46 Train Time 10.922145128250122s
+
+No improvement. Patience: 3/30
+Training epoch 47, Batch 49/98: LR=9.19e-04, Loss=1.93255e-01 LER=6.995e-02
+***Loss=1.93255e-01
+Training epoch 47, Batch 98/98: LR=9.19e-04, Loss=1.95407e-01 LER=7.093e-02
+***Loss=1.95407e-01
+Epoch 47 Train Time 11.281057119369507s
+
+No improvement. Patience: 4/30
+Training epoch 48, Batch 49/98: LR=9.15e-04, Loss=2.00735e-01 LER=7.248e-02
+***Loss=2.00735e-01
+Training epoch 48, Batch 98/98: LR=9.15e-04, Loss=1.97605e-01 LER=7.130e-02
+***Loss=1.97605e-01
+Epoch 48 Train Time 10.972826719284058s
+
+No improvement. Patience: 5/30
+Training epoch 49, Batch 49/98: LR=9.12e-04, Loss=1.96981e-01 LER=7.091e-02
+***Loss=1.96981e-01
+Training epoch 49, Batch 98/98: LR=9.12e-04, Loss=1.95588e-01 LER=7.050e-02
+***Loss=1.95588e-01
+Epoch 49 Train Time 10.849798440933228s
+
+No improvement. Patience: 6/30
+Training epoch 50, Batch 49/98: LR=9.08e-04, Loss=1.98466e-01 LER=7.199e-02
+***Loss=1.98466e-01
+Training epoch 50, Batch 98/98: LR=9.08e-04, Loss=1.97271e-01 LER=7.154e-02
+***Loss=1.97271e-01
+Epoch 50 Train Time 10.778651475906372s
+
+No improvement. Patience: 7/30
+Test LER  p=7.00e-02: 3.71e-02 p=8.00e-02: 5.47e-02 p=9.00e-02: 6.64e-02 p=1.00e-01: 8.63e-02 p=1.10e-01: 1.04e-01
+Mean LER = 6.973e-02
+# of testing samples: [10240.0, 10240.0, 10240.0, 10240.0, 10240.0]
+ Test Time 30.644731521606445 s
+
+Training epoch 51, Batch 49/98: LR=9.05e-04, Loss=1.94135e-01 LER=6.961e-02
+***Loss=1.94135e-01
+Training epoch 51, Batch 98/98: LR=9.05e-04, Loss=1.93239e-01 LER=6.974e-02
+***Loss=1.93239e-01
+Epoch 51 Train Time 10.608850240707397s
+
+Model Saved - New best loss: 1.93239e-01
+Training epoch 52, Batch 49/98: LR=9.01e-04, Loss=1.93690e-01 LER=6.892e-02
+***Loss=1.93690e-01
+Training epoch 52, Batch 98/98: LR=9.01e-04, Loss=1.94750e-01 LER=6.961e-02
+***Loss=1.94750e-01
+Epoch 52 Train Time 11.063101053237915s
+
+No improvement. Patience: 1/30
+Training epoch 53, Batch 49/98: LR=8.97e-04, Loss=1.93954e-01 LER=7.003e-02
+***Loss=1.93954e-01
+Training epoch 53, Batch 98/98: LR=8.97e-04, Loss=1.92561e-01 LER=7.015e-02
+***Loss=1.92561e-01
+Epoch 53 Train Time 11.249340295791626s
+
+Model Saved - New best loss: 1.92561e-01
+Training epoch 54, Batch 49/98: LR=8.93e-04, Loss=1.95557e-01 LER=7.061e-02
+***Loss=1.95557e-01
+Training epoch 54, Batch 98/98: LR=8.93e-04, Loss=1.95767e-01 LER=7.048e-02
+***Loss=1.95767e-01
+Epoch 54 Train Time 11.229048013687134s
+
+No improvement. Patience: 1/30
+Training epoch 55, Batch 49/98: LR=8.89e-04, Loss=1.92511e-01 LER=7.015e-02
+***Loss=1.92511e-01
+Training epoch 55, Batch 98/98: LR=8.89e-04, Loss=1.92079e-01 LER=7.021e-02
+***Loss=1.92079e-01
+Epoch 55 Train Time 11.135812997817993s
+
+Model Saved - New best loss: 1.92079e-01
+Training epoch 56, Batch 49/98: LR=8.85e-04, Loss=1.91575e-01 LER=6.940e-02
+***Loss=1.91575e-01
+Training epoch 56, Batch 98/98: LR=8.85e-04, Loss=1.90843e-01 LER=6.867e-02
+***Loss=1.90843e-01
+Epoch 56 Train Time 10.99273419380188s
+
+Model Saved - New best loss: 1.90843e-01
+Training epoch 57, Batch 49/98: LR=8.81e-04, Loss=1.92856e-01 LER=7.013e-02
+***Loss=1.92856e-01
+Training epoch 57, Batch 98/98: LR=8.81e-04, Loss=1.93032e-01 LER=6.979e-02
+***Loss=1.93032e-01
+Epoch 57 Train Time 10.62009859085083s
+
+No improvement. Patience: 1/30
+Training epoch 58, Batch 49/98: LR=8.77e-04, Loss=1.91361e-01 LER=6.852e-02
+***Loss=1.91361e-01
+Training epoch 58, Batch 98/98: LR=8.77e-04, Loss=1.93537e-01 LER=7.013e-02
+***Loss=1.93537e-01
+Epoch 58 Train Time 10.86270785331726s
+
+No improvement. Patience: 2/30
+Training epoch 59, Batch 49/98: LR=8.73e-04, Loss=1.99013e-01 LER=7.217e-02
+***Loss=1.99013e-01
+Training epoch 59, Batch 98/98: LR=8.73e-04, Loss=1.96518e-01 LER=7.136e-02
+***Loss=1.96518e-01
+Epoch 59 Train Time 11.105240821838379s
+
+No improvement. Patience: 3/30
+Training epoch 60, Batch 49/98: LR=8.69e-04, Loss=1.90113e-01 LER=6.838e-02
+***Loss=1.90113e-01
+Training epoch 60, Batch 98/98: LR=8.69e-04, Loss=1.90373e-01 LER=6.850e-02
+***Loss=1.90373e-01
+Epoch 60 Train Time 11.564715385437012s
+
+Model Saved - New best loss: 1.90373e-01
+Test LER  p=7.00e-02: 3.64e-02 p=8.00e-02: 5.19e-02 p=9.00e-02: 6.50e-02 p=1.00e-01: 8.26e-02 p=1.10e-01: 1.01e-01
+Mean LER = 6.738e-02
+# of testing samples: [10240.0, 10240.0, 10240.0, 10240.0, 10240.0]
+ Test Time 30.877069234848022 s
+
+Training epoch 61, Batch 49/98: LR=8.65e-04, Loss=1.90390e-01 LER=6.985e-02
+***Loss=1.90390e-01
+Training epoch 61, Batch 98/98: LR=8.65e-04, Loss=1.91584e-01 LER=6.946e-02
+***Loss=1.91584e-01
+Epoch 61 Train Time 11.044343948364258s
+
+No improvement. Patience: 1/30
+Training epoch 62, Batch 49/98: LR=8.60e-04, Loss=1.87578e-01 LER=6.810e-02
+***Loss=1.87578e-01
+Training epoch 62, Batch 98/98: LR=8.60e-04, Loss=1.90618e-01 LER=6.842e-02
+***Loss=1.90618e-01
+Epoch 62 Train Time 11.364360809326172s
+
+No improvement. Patience: 2/30
+Training epoch 63, Batch 49/98: LR=8.56e-04, Loss=1.91301e-01 LER=6.944e-02
+***Loss=1.91301e-01
+Training epoch 63, Batch 98/98: LR=8.56e-04, Loss=1.93419e-01 LER=6.992e-02
+***Loss=1.93419e-01
+Epoch 63 Train Time 11.234368085861206s
+
+No improvement. Patience: 3/30
+Training epoch 64, Batch 49/98: LR=8.51e-04, Loss=1.87626e-01 LER=6.816e-02
+***Loss=1.87626e-01
+Training epoch 64, Batch 98/98: LR=8.51e-04, Loss=1.87863e-01 LER=6.794e-02
+***Loss=1.87863e-01
+Epoch 64 Train Time 10.943278074264526s
+
+Model Saved - New best loss: 1.87863e-01
+Training epoch 65, Batch 49/98: LR=8.47e-04, Loss=1.90510e-01 LER=6.876e-02
+***Loss=1.90510e-01
+Training epoch 65, Batch 98/98: LR=8.47e-04, Loss=1.91619e-01 LER=6.917e-02
+***Loss=1.91619e-01
+Epoch 65 Train Time 11.081390142440796s
+
+No improvement. Patience: 1/30
+Training epoch 66, Batch 49/98: LR=8.42e-04, Loss=1.82692e-01 LER=6.549e-02
+***Loss=1.82692e-01
+Training epoch 66, Batch 98/98: LR=8.42e-04, Loss=1.82476e-01 LER=6.511e-02
+***Loss=1.82476e-01
+Epoch 66 Train Time 11.105490446090698s
+
+Model Saved - New best loss: 1.82476e-01
+Training epoch 67, Batch 49/98: LR=8.38e-04, Loss=1.87820e-01 LER=6.824e-02
+***Loss=1.87820e-01
+Training epoch 67, Batch 98/98: LR=8.38e-04, Loss=1.91026e-01 LER=6.913e-02
+***Loss=1.91026e-01
+Epoch 67 Train Time 11.234710931777954s
+
+No improvement. Patience: 1/30
+Training epoch 68, Batch 49/98: LR=8.33e-04, Loss=1.85528e-01 LER=6.814e-02
+***Loss=1.85528e-01
+Training epoch 68, Batch 98/98: LR=8.33e-04, Loss=1.86577e-01 LER=6.812e-02
+***Loss=1.86577e-01
+Epoch 68 Train Time 11.10332179069519s
+
+No improvement. Patience: 2/30
+Training epoch 69, Batch 49/98: LR=8.28e-04, Loss=1.89833e-01 LER=6.870e-02
+***Loss=1.89833e-01
+Training epoch 69, Batch 98/98: LR=8.28e-04, Loss=1.90145e-01 LER=6.899e-02
+***Loss=1.90145e-01
+Epoch 69 Train Time 10.925096988677979s
+
+No improvement. Patience: 3/30
+Training epoch 70, Batch 49/98: LR=8.24e-04, Loss=1.90475e-01 LER=6.764e-02
+***Loss=1.90475e-01
+Training epoch 70, Batch 98/98: LR=8.24e-04, Loss=1.90008e-01 LER=6.786e-02
+***Loss=1.90008e-01
+Epoch 70 Train Time 10.649374008178711s
+
+No improvement. Patience: 4/30
+Test LER  p=7.00e-02: 3.81e-02 p=8.00e-02: 4.65e-02 p=9.00e-02: 6.87e-02 p=1.00e-01: 8.35e-02 p=1.10e-01: 1.00e-01
+Mean LER = 6.734e-02
+# of testing samples: [10240.0, 10240.0, 10240.0, 10240.0, 10240.0]
+ Test Time 30.70216131210327 s
+
+Training epoch 71, Batch 49/98: LR=8.19e-04, Loss=1.91208e-01 LER=6.902e-02
+***Loss=1.91208e-01
+Training epoch 71, Batch 98/98: LR=8.19e-04, Loss=1.88872e-01 LER=6.817e-02
+***Loss=1.88872e-01
+Epoch 71 Train Time 11.438893795013428s
+
+No improvement. Patience: 5/30
+Training epoch 72, Batch 49/98: LR=8.14e-04, Loss=1.91528e-01 LER=6.798e-02
+***Loss=1.91528e-01
+Training epoch 72, Batch 98/98: LR=8.14e-04, Loss=1.89391e-01 LER=6.828e-02
+***Loss=1.89391e-01
+Epoch 72 Train Time 10.754687786102295s
+
+No improvement. Patience: 6/30
+Training epoch 73, Batch 49/98: LR=8.09e-04, Loss=1.86055e-01 LER=6.748e-02
+***Loss=1.86055e-01
+Training epoch 73, Batch 98/98: LR=8.09e-04, Loss=1.85968e-01 LER=6.774e-02
+***Loss=1.85968e-01
+Epoch 73 Train Time 10.71033263206482s
+
+No improvement. Patience: 7/30
+Training epoch 74, Batch 49/98: LR=8.04e-04, Loss=1.87893e-01 LER=6.806e-02
+***Loss=1.87893e-01
+Training epoch 74, Batch 98/98: LR=8.04e-04, Loss=1.88277e-01 LER=6.813e-02
+***Loss=1.88277e-01
+Epoch 74 Train Time 11.131874322891235s
+
+No improvement. Patience: 8/30
+Training epoch 75, Batch 49/98: LR=7.99e-04, Loss=1.88833e-01 LER=6.826e-02
+***Loss=1.88833e-01
+Training epoch 75, Batch 98/98: LR=7.99e-04, Loss=1.87989e-01 LER=6.841e-02
+***Loss=1.87989e-01
+Epoch 75 Train Time 10.90151333808899s
+
+No improvement. Patience: 9/30
+Training epoch 76, Batch 49/98: LR=7.94e-04, Loss=1.86118e-01 LER=6.577e-02
+***Loss=1.86118e-01
+Training epoch 76, Batch 98/98: LR=7.94e-04, Loss=1.87112e-01 LER=6.726e-02
+***Loss=1.87112e-01
+Epoch 76 Train Time 11.103795289993286s
+
+No improvement. Patience: 10/30
+Training epoch 77, Batch 49/98: LR=7.89e-04, Loss=1.91118e-01 LER=6.926e-02
+***Loss=1.91118e-01
+Training epoch 77, Batch 98/98: LR=7.89e-04, Loss=1.89609e-01 LER=6.876e-02
+***Loss=1.89609e-01
+Epoch 77 Train Time 10.91893482208252s
+
+No improvement. Patience: 11/30
+Training epoch 78, Batch 49/98: LR=7.84e-04, Loss=1.87337e-01 LER=6.676e-02
+***Loss=1.87337e-01
+Training epoch 78, Batch 98/98: LR=7.84e-04, Loss=1.85414e-01 LER=6.662e-02
+***Loss=1.85414e-01
+Epoch 78 Train Time 10.542263746261597s
+
+No improvement. Patience: 12/30
+Training epoch 79, Batch 49/98: LR=7.79e-04, Loss=1.90436e-01 LER=6.820e-02
+***Loss=1.90436e-01
+Training epoch 79, Batch 98/98: LR=7.79e-04, Loss=1.86785e-01 LER=6.714e-02
+***Loss=1.86785e-01
+Epoch 79 Train Time 11.01241159439087s
+
+No improvement. Patience: 13/30
+Training epoch 80, Batch 49/98: LR=7.73e-04, Loss=1.84206e-01 LER=6.649e-02
+***Loss=1.84206e-01
+Training epoch 80, Batch 98/98: LR=7.73e-04, Loss=1.84115e-01 LER=6.659e-02
+***Loss=1.84115e-01
+Epoch 80 Train Time 11.145948886871338s
+
+No improvement. Patience: 14/30
+Test LER  p=7.00e-02: 3.43e-02 p=8.00e-02: 4.86e-02 p=9.00e-02: 7.08e-02 p=1.00e-01: 8.71e-02 p=1.10e-01: 1.02e-01
+Mean LER = 6.863e-02
+# of testing samples: [10240.0, 10240.0, 10240.0, 10240.0, 10240.0]
+ Test Time 30.71765971183777 s
+
+Training epoch 81, Batch 49/98: LR=7.68e-04, Loss=1.88724e-01 LER=6.876e-02
+***Loss=1.88724e-01
+Training epoch 81, Batch 98/98: LR=7.68e-04, Loss=1.87373e-01 LER=6.805e-02
+***Loss=1.87373e-01
+Epoch 81 Train Time 10.651330709457397s
+
+No improvement. Patience: 15/30
+Training epoch 82, Batch 49/98: LR=7.63e-04, Loss=1.83678e-01 LER=6.499e-02
+***Loss=1.83678e-01
+Training epoch 82, Batch 98/98: LR=7.63e-04, Loss=1.84421e-01 LER=6.611e-02
+***Loss=1.84421e-01
+Epoch 82 Train Time 10.994868993759155s
+
+No improvement. Patience: 16/30
+Training epoch 83, Batch 49/98: LR=7.57e-04, Loss=1.89185e-01 LER=6.934e-02
+***Loss=1.89185e-01
+Training epoch 83, Batch 98/98: LR=7.57e-04, Loss=1.87326e-01 LER=6.792e-02
+***Loss=1.87326e-01
+Epoch 83 Train Time 11.114924430847168s
+
+No improvement. Patience: 17/30
+Training epoch 84, Batch 49/98: LR=7.52e-04, Loss=1.84914e-01 LER=6.792e-02
+***Loss=1.84914e-01
+Training epoch 84, Batch 98/98: LR=7.52e-04, Loss=1.82516e-01 LER=6.650e-02
+***Loss=1.82516e-01
+Epoch 84 Train Time 11.020737171173096s
+
+No improvement. Patience: 18/30
+Training epoch 85, Batch 49/98: LR=7.47e-04, Loss=1.85026e-01 LER=6.595e-02
+***Loss=1.85026e-01
+Training epoch 85, Batch 98/98: LR=7.47e-04, Loss=1.83506e-01 LER=6.577e-02
+***Loss=1.83506e-01
+Epoch 85 Train Time 11.063483238220215s
+
+No improvement. Patience: 19/30
+Training epoch 86, Batch 49/98: LR=7.41e-04, Loss=1.88845e-01 LER=6.864e-02
+***Loss=1.88845e-01
+Training epoch 86, Batch 98/98: LR=7.41e-04, Loss=1.88719e-01 LER=6.858e-02
+***Loss=1.88719e-01
+Epoch 86 Train Time 11.074878931045532s
+
+No improvement. Patience: 20/30
+Training epoch 87, Batch 49/98: LR=7.36e-04, Loss=1.85866e-01 LER=6.770e-02
+***Loss=1.85866e-01
+Training epoch 87, Batch 98/98: LR=7.36e-04, Loss=1.87019e-01 LER=6.787e-02
+***Loss=1.87019e-01
+Epoch 87 Train Time 10.841461420059204s
+
+No improvement. Patience: 21/30
+Training epoch 88, Batch 49/98: LR=7.30e-04, Loss=1.87997e-01 LER=6.858e-02
+***Loss=1.87997e-01
+Training epoch 88, Batch 98/98: LR=7.30e-04, Loss=1.86755e-01 LER=6.774e-02
+***Loss=1.86755e-01
+Epoch 88 Train Time 10.84858512878418s
+
+No improvement. Patience: 22/30
+Training epoch 89, Batch 49/98: LR=7.24e-04, Loss=1.87566e-01 LER=6.844e-02
+***Loss=1.87566e-01
+Training epoch 89, Batch 98/98: LR=7.24e-04, Loss=1.85971e-01 LER=6.759e-02
+***Loss=1.85971e-01
+Epoch 89 Train Time 11.065070867538452s
+
+No improvement. Patience: 23/30
+Training epoch 90, Batch 49/98: LR=7.19e-04, Loss=1.87940e-01 LER=6.814e-02
+***Loss=1.87940e-01
+Training epoch 90, Batch 98/98: LR=7.19e-04, Loss=1.87690e-01 LER=6.804e-02
+***Loss=1.87690e-01
+Epoch 90 Train Time 10.899165630340576s
+
+No improvement. Patience: 24/30
+Test LER  p=7.00e-02: 3.47e-02 p=8.00e-02: 4.50e-02 p=9.00e-02: 6.28e-02 p=1.00e-01: 8.10e-02 p=1.10e-01: 1.00e-01
+Mean LER = 6.473e-02
+# of testing samples: [10240.0, 10240.0, 10240.0, 10240.0, 10240.0]
+ Test Time 30.519502878189087 s
+
+Training epoch 91, Batch 49/98: LR=7.13e-04, Loss=1.85943e-01 LER=6.712e-02
+***Loss=1.85943e-01
+Training epoch 91, Batch 98/98: LR=7.13e-04, Loss=1.84478e-01 LER=6.680e-02
+***Loss=1.84478e-01
+Epoch 91 Train Time 10.862300634384155s
+
+No improvement. Patience: 25/30
+Training epoch 92, Batch 49/98: LR=7.07e-04, Loss=1.82731e-01 LER=6.475e-02
+***Loss=1.82731e-01
+Training epoch 92, Batch 98/98: LR=7.07e-04, Loss=1.85069e-01 LER=6.637e-02
+***Loss=1.85069e-01
+Epoch 92 Train Time 11.447898149490356s
+
+No improvement. Patience: 26/30
+Training epoch 93, Batch 49/98: LR=7.02e-04, Loss=1.82062e-01 LER=6.631e-02
+***Loss=1.82062e-01
+Training epoch 93, Batch 98/98: LR=7.02e-04, Loss=1.84764e-01 LER=6.659e-02
+***Loss=1.84764e-01
+Epoch 93 Train Time 11.294537782669067s
+
+No improvement. Patience: 27/30
+Training epoch 94, Batch 49/98: LR=6.96e-04, Loss=1.82377e-01 LER=6.671e-02
+***Loss=1.82377e-01
+Training epoch 94, Batch 98/98: LR=6.96e-04, Loss=1.82482e-01 LER=6.606e-02
+***Loss=1.82482e-01
+Epoch 94 Train Time 11.03575348854065s
+
+No improvement. Patience: 28/30
+Training epoch 95, Batch 49/98: LR=6.90e-04, Loss=1.80050e-01 LER=6.515e-02
+***Loss=1.80050e-01
+Training epoch 95, Batch 98/98: LR=6.90e-04, Loss=1.82288e-01 LER=6.601e-02
+***Loss=1.82288e-01
+Epoch 95 Train Time 11.031093835830688s
+
+Model Saved - New best loss: 1.82288e-01
+Training epoch 96, Batch 49/98: LR=6.84e-04, Loss=1.85122e-01 LER=6.712e-02
+***Loss=1.85122e-01
+Training epoch 96, Batch 98/98: LR=6.84e-04, Loss=1.83816e-01 LER=6.648e-02
+***Loss=1.83816e-01
+Epoch 96 Train Time 11.041092157363892s
+
+No improvement. Patience: 1/30
+Training epoch 97, Batch 49/98: LR=6.79e-04, Loss=1.86181e-01 LER=6.752e-02
+***Loss=1.86181e-01
+Training epoch 97, Batch 98/98: LR=6.79e-04, Loss=1.85124e-01 LER=6.745e-02
+***Loss=1.85124e-01
+Epoch 97 Train Time 10.579392910003662s
+
+No improvement. Patience: 2/30
+Training epoch 98, Batch 49/98: LR=6.73e-04, Loss=1.83929e-01 LER=6.535e-02
+***Loss=1.83929e-01
+Training epoch 98, Batch 98/98: LR=6.73e-04, Loss=1.86355e-01 LER=6.609e-02
+***Loss=1.86355e-01
+Epoch 98 Train Time 10.846791982650757s
+
+No improvement. Patience: 3/30
+Training epoch 99, Batch 49/98: LR=6.67e-04, Loss=1.80319e-01 LER=6.360e-02
+***Loss=1.80319e-01
+Training epoch 99, Batch 98/98: LR=6.67e-04, Loss=1.79748e-01 LER=6.423e-02
+***Loss=1.79748e-01
+Epoch 99 Train Time 10.819093227386475s
+
+Model Saved - New best loss: 1.79748e-01
+Training epoch 100, Batch 49/98: LR=6.61e-04, Loss=1.86192e-01 LER=6.808e-02
+***Loss=1.86192e-01
+Training epoch 100, Batch 98/98: LR=6.61e-04, Loss=1.83599e-01 LER=6.626e-02
+***Loss=1.83599e-01
+Epoch 100 Train Time 11.061443090438843s
+
+No improvement. Patience: 1/30
+Test LER  p=7.00e-02: 3.80e-02 p=8.00e-02: 4.83e-02 p=9.00e-02: 6.67e-02 p=1.00e-01: 8.39e-02 p=1.10e-01: 9.77e-02
+Mean LER = 6.691e-02
+# of testing samples: [10240.0, 10240.0, 10240.0, 10240.0, 10240.0]
+ Test Time 30.50647282600403 s
+
+Training epoch 101, Batch 49/98: LR=6.55e-04, Loss=1.86211e-01 LER=6.613e-02
+***Loss=1.86211e-01
+Training epoch 101, Batch 98/98: LR=6.55e-04, Loss=1.84348e-01 LER=6.590e-02
+***Loss=1.84348e-01
+Epoch 101 Train Time 11.047587394714355s
+
+No improvement. Patience: 2/30
+Training epoch 102, Batch 49/98: LR=6.49e-04, Loss=1.84331e-01 LER=6.575e-02
+***Loss=1.84331e-01
+Training epoch 102, Batch 98/98: LR=6.49e-04, Loss=1.85096e-01 LER=6.652e-02
+***Loss=1.85096e-01
+Epoch 102 Train Time 10.930585622787476s
+
+No improvement. Patience: 3/30
+Training epoch 103, Batch 49/98: LR=6.43e-04, Loss=1.82511e-01 LER=6.605e-02
+***Loss=1.82511e-01
+Training epoch 103, Batch 98/98: LR=6.43e-04, Loss=1.82476e-01 LER=6.598e-02
+***Loss=1.82476e-01
+Epoch 103 Train Time 10.952058553695679s
+
+No improvement. Patience: 4/30
+Training epoch 104, Batch 49/98: LR=6.37e-04, Loss=1.80673e-01 LER=6.409e-02
+***Loss=1.80673e-01
+Training epoch 104, Batch 98/98: LR=6.37e-04, Loss=1.83264e-01 LER=6.580e-02
+***Loss=1.83264e-01
+Epoch 104 Train Time 10.708243608474731s
+
+No improvement. Patience: 5/30
+Training epoch 105, Batch 49/98: LR=6.31e-04, Loss=1.78117e-01 LER=6.661e-02
+***Loss=1.78117e-01
+Training epoch 105, Batch 98/98: LR=6.31e-04, Loss=1.81284e-01 LER=6.695e-02
+***Loss=1.81284e-01
+Epoch 105 Train Time 11.441650867462158s
+
+No improvement. Patience: 6/30
+Training epoch 106, Batch 49/98: LR=6.25e-04, Loss=1.83260e-01 LER=6.557e-02
+***Loss=1.83260e-01
+Training epoch 106, Batch 98/98: LR=6.25e-04, Loss=1.84229e-01 LER=6.613e-02
+***Loss=1.84229e-01
+Epoch 106 Train Time 11.689356803894043s
+
+No improvement. Patience: 7/30
+Training epoch 107, Batch 49/98: LR=6.19e-04, Loss=1.76493e-01 LER=6.324e-02
+***Loss=1.76493e-01
+Training epoch 107, Batch 98/98: LR=6.19e-04, Loss=1.78309e-01 LER=6.376e-02
+***Loss=1.78309e-01
+Epoch 107 Train Time 11.114377975463867s
+
+Model Saved - New best loss: 1.78309e-01
+Training epoch 108, Batch 49/98: LR=6.13e-04, Loss=1.76915e-01 LER=6.401e-02
+***Loss=1.76915e-01
+Training epoch 108, Batch 98/98: LR=6.13e-04, Loss=1.78272e-01 LER=6.446e-02
+***Loss=1.78272e-01
+Epoch 108 Train Time 11.375889539718628s
+
+Model Saved - New best loss: 1.78272e-01
+Training epoch 109, Batch 49/98: LR=6.06e-04, Loss=1.82230e-01 LER=6.395e-02
+***Loss=1.82230e-01
+Training epoch 109, Batch 98/98: LR=6.06e-04, Loss=1.81624e-01 LER=6.461e-02
+***Loss=1.81624e-01
+Epoch 109 Train Time 10.769947528839111s
+
+No improvement. Patience: 1/30
+Training epoch 110, Batch 49/98: LR=6.00e-04, Loss=1.85069e-01 LER=6.744e-02
+***Loss=1.85069e-01
+Training epoch 110, Batch 98/98: LR=6.00e-04, Loss=1.83540e-01 LER=6.696e-02
+***Loss=1.83540e-01
+Epoch 110 Train Time 10.91538691520691s
+
+No improvement. Patience: 2/30
+Test LER  p=7.00e-02: 3.80e-02 p=8.00e-02: 4.94e-02 p=9.00e-02: 6.28e-02 p=1.00e-01: 8.60e-02 p=1.10e-01: 1.00e-01
+Mean LER = 6.725e-02
+# of testing samples: [10240.0, 10240.0, 10240.0, 10240.0, 10240.0]
+ Test Time 30.883069276809692 s
+
+Training epoch 111, Batch 49/98: LR=5.94e-04, Loss=1.81868e-01 LER=6.525e-02
+***Loss=1.81868e-01
+Training epoch 111, Batch 98/98: LR=5.94e-04, Loss=1.79516e-01 LER=6.520e-02
+***Loss=1.79516e-01
+Epoch 111 Train Time 10.807660579681396s
+
+No improvement. Patience: 3/30
+Training epoch 112, Batch 49/98: LR=5.88e-04, Loss=1.79925e-01 LER=6.425e-02
+***Loss=1.79925e-01
+Training epoch 112, Batch 98/98: LR=5.88e-04, Loss=1.77926e-01 LER=6.391e-02
+***Loss=1.77926e-01
+Epoch 112 Train Time 11.463671207427979s
+
+Model Saved - New best loss: 1.77926e-01
+Training epoch 113, Batch 49/98: LR=5.82e-04, Loss=1.81477e-01 LER=6.675e-02
+***Loss=1.81477e-01
+Training epoch 113, Batch 98/98: LR=5.82e-04, Loss=1.80579e-01 LER=6.582e-02
+***Loss=1.80579e-01
+Epoch 113 Train Time 11.052462100982666s
+
+No improvement. Patience: 1/30
+Training epoch 114, Batch 49/98: LR=5.76e-04, Loss=1.80457e-01 LER=6.529e-02
+***Loss=1.80457e-01
+Training epoch 114, Batch 98/98: LR=5.76e-04, Loss=1.79420e-01 LER=6.502e-02
+***Loss=1.79420e-01
+Epoch 114 Train Time 10.443617343902588s
+
+No improvement. Patience: 2/30
+Training epoch 115, Batch 49/98: LR=5.69e-04, Loss=1.81679e-01 LER=6.477e-02
+***Loss=1.81679e-01
+Training epoch 115, Batch 98/98: LR=5.69e-04, Loss=1.81086e-01 LER=6.485e-02
+***Loss=1.81086e-01
+Epoch 115 Train Time 11.120176792144775s
+
+No improvement. Patience: 3/30
+Training epoch 116, Batch 49/98: LR=5.63e-04, Loss=1.83269e-01 LER=6.633e-02
+***Loss=1.83269e-01
+Training epoch 116, Batch 98/98: LR=5.63e-04, Loss=1.80699e-01 LER=6.542e-02
+***Loss=1.80699e-01
+Epoch 116 Train Time 10.95217490196228s
+
+No improvement. Patience: 4/30
+Training epoch 117, Batch 49/98: LR=5.57e-04, Loss=1.83067e-01 LER=6.497e-02
+***Loss=1.83067e-01
+Training epoch 117, Batch 98/98: LR=5.57e-04, Loss=1.83808e-01 LER=6.603e-02
+***Loss=1.83808e-01
+Epoch 117 Train Time 11.091538667678833s
+
+No improvement. Patience: 5/30
+Training epoch 118, Batch 49/98: LR=5.51e-04, Loss=1.80569e-01 LER=6.397e-02
+***Loss=1.80569e-01
+Training epoch 118, Batch 98/98: LR=5.51e-04, Loss=1.81742e-01 LER=6.465e-02
+***Loss=1.81742e-01
+Epoch 118 Train Time 11.005607604980469s
+
+No improvement. Patience: 6/30
+Training epoch 119, Batch 49/98: LR=5.44e-04, Loss=1.75608e-01 LER=6.224e-02
+***Loss=1.75608e-01
+Training epoch 119, Batch 98/98: LR=5.44e-04, Loss=1.76877e-01 LER=6.275e-02
+***Loss=1.76877e-01
+Epoch 119 Train Time 10.978466272354126s
+
+Model Saved - New best loss: 1.76877e-01
+Training epoch 120, Batch 49/98: LR=5.38e-04, Loss=1.81918e-01 LER=6.485e-02
+***Loss=1.81918e-01
+Training epoch 120, Batch 98/98: LR=5.38e-04, Loss=1.79645e-01 LER=6.413e-02
+***Loss=1.79645e-01
+Epoch 120 Train Time 10.927103281021118s
+
+No improvement. Patience: 1/30
+Test LER  p=7.00e-02: 3.38e-02 p=8.00e-02: 4.63e-02 p=9.00e-02: 6.13e-02 p=1.00e-01: 7.94e-02 p=1.10e-01: 1.03e-01
+Mean LER = 6.480e-02
+# of testing samples: [10240.0, 10240.0, 10240.0, 10240.0, 10240.0]
+ Test Time 30.503084897994995 s
+
+Training epoch 121, Batch 49/98: LR=5.32e-04, Loss=1.77997e-01 LER=6.334e-02
+***Loss=1.77997e-01
+Training epoch 121, Batch 98/98: LR=5.32e-04, Loss=1.79034e-01 LER=6.404e-02
+***Loss=1.79034e-01
+Epoch 121 Train Time 11.36556601524353s
+
+No improvement. Patience: 2/30
+Training epoch 122, Batch 49/98: LR=5.26e-04, Loss=1.78400e-01 LER=6.461e-02
+***Loss=1.78400e-01
+Training epoch 122, Batch 98/98: LR=5.26e-04, Loss=1.78881e-01 LER=6.400e-02
+***Loss=1.78881e-01
+Epoch 122 Train Time 10.833360195159912s
+
+No improvement. Patience: 3/30
+Training epoch 123, Batch 49/98: LR=5.19e-04, Loss=1.84029e-01 LER=6.645e-02
+***Loss=1.84029e-01
+Training epoch 123, Batch 98/98: LR=5.19e-04, Loss=1.81269e-01 LER=6.573e-02
+***Loss=1.81269e-01
+Epoch 123 Train Time 10.610234260559082s
+
+No improvement. Patience: 4/30
+Training epoch 124, Batch 49/98: LR=5.13e-04, Loss=1.79931e-01 LER=6.491e-02
+***Loss=1.79931e-01
+Training epoch 124, Batch 98/98: LR=5.13e-04, Loss=1.79618e-01 LER=6.454e-02
+***Loss=1.79618e-01
+Epoch 124 Train Time 11.197119235992432s
+
+No improvement. Patience: 5/30
+Training epoch 125, Batch 49/98: LR=5.07e-04, Loss=1.78415e-01 LER=6.553e-02
+***Loss=1.78415e-01
+Training epoch 125, Batch 98/98: LR=5.07e-04, Loss=1.80303e-01 LER=6.576e-02
+***Loss=1.80303e-01
+Epoch 125 Train Time 11.002786874771118s
+
+No improvement. Patience: 6/30
+Training epoch 126, Batch 49/98: LR=5.01e-04, Loss=1.83631e-01 LER=6.619e-02
+***Loss=1.83631e-01
+Training epoch 126, Batch 98/98: LR=5.01e-04, Loss=1.82563e-01 LER=6.591e-02
+***Loss=1.82563e-01
+Epoch 126 Train Time 11.085081577301025s
+
+No improvement. Patience: 7/30
+Training epoch 127, Batch 49/98: LR=4.94e-04, Loss=1.80167e-01 LER=6.479e-02
+***Loss=1.80167e-01
+Training epoch 127, Batch 98/98: LR=4.94e-04, Loss=1.78736e-01 LER=6.414e-02
+***Loss=1.78736e-01
+Epoch 127 Train Time 11.259940147399902s
+
+No improvement. Patience: 8/30
+Training epoch 128, Batch 49/98: LR=4.88e-04, Loss=1.77686e-01 LER=6.459e-02
+***Loss=1.77686e-01
+Training epoch 128, Batch 98/98: LR=4.88e-04, Loss=1.77763e-01 LER=6.410e-02
+***Loss=1.77763e-01
+Epoch 128 Train Time 11.048312187194824s
+
+No improvement. Patience: 9/30
+Training epoch 129, Batch 49/98: LR=4.82e-04, Loss=1.76075e-01 LER=6.372e-02
+***Loss=1.76075e-01
+Training epoch 129, Batch 98/98: LR=4.82e-04, Loss=1.78040e-01 LER=6.470e-02
+***Loss=1.78040e-01
+Epoch 129 Train Time 10.916905879974365s
+
+No improvement. Patience: 10/30
+Training epoch 130, Batch 49/98: LR=4.75e-04, Loss=1.78623e-01 LER=6.443e-02
+***Loss=1.78623e-01
+Training epoch 130, Batch 98/98: LR=4.75e-04, Loss=1.79493e-01 LER=6.484e-02
+***Loss=1.79493e-01
+Epoch 130 Train Time 10.743979692459106s
+
+No improvement. Patience: 11/30
+Test LER  p=7.00e-02: 3.34e-02 p=8.00e-02: 4.62e-02 p=9.00e-02: 6.17e-02 p=1.00e-01: 7.75e-02 p=1.10e-01: 1.02e-01
+Mean LER = 6.408e-02
+# of testing samples: [10240.0, 10240.0, 10240.0, 10240.0, 10240.0]
+ Test Time 30.444164991378784 s
+
+Training epoch 131, Batch 49/98: LR=4.69e-04, Loss=1.75217e-01 LER=6.298e-02
+***Loss=1.75217e-01
+Training epoch 131, Batch 98/98: LR=4.69e-04, Loss=1.75944e-01 LER=6.395e-02
+***Loss=1.75944e-01
+Epoch 131 Train Time 11.01419186592102s
+
+Model Saved - New best loss: 1.75944e-01
+Training epoch 132, Batch 49/98: LR=4.63e-04, Loss=1.78049e-01 LER=6.344e-02
+***Loss=1.78049e-01
+Training epoch 132, Batch 98/98: LR=4.63e-04, Loss=1.79155e-01 LER=6.408e-02
+***Loss=1.79155e-01
+Epoch 132 Train Time 10.911865711212158s
+
+No improvement. Patience: 1/30
+Training epoch 133, Batch 49/98: LR=4.57e-04, Loss=1.76823e-01 LER=6.292e-02
+***Loss=1.76823e-01
+Training epoch 133, Batch 98/98: LR=4.57e-04, Loss=1.77741e-01 LER=6.338e-02
+***Loss=1.77741e-01
+Epoch 133 Train Time 10.988658428192139s
+
+No improvement. Patience: 2/30
+Training epoch 134, Batch 49/98: LR=4.50e-04, Loss=1.79711e-01 LER=6.561e-02
+***Loss=1.79711e-01
+Training epoch 134, Batch 98/98: LR=4.50e-04, Loss=1.80102e-01 LER=6.514e-02
+***Loss=1.80102e-01
+Epoch 134 Train Time 10.965985298156738s
+
+No improvement. Patience: 3/30
+Training epoch 135, Batch 49/98: LR=4.44e-04, Loss=1.70980e-01 LER=6.182e-02
+***Loss=1.70980e-01
+Training epoch 135, Batch 98/98: LR=4.44e-04, Loss=1.74023e-01 LER=6.281e-02
+***Loss=1.74023e-01
+Epoch 135 Train Time 10.949649333953857s
+
+Model Saved - New best loss: 1.74023e-01
+Training epoch 136, Batch 49/98: LR=4.38e-04, Loss=1.79933e-01 LER=6.509e-02
+***Loss=1.79933e-01
+Training epoch 136, Batch 98/98: LR=4.38e-04, Loss=1.78066e-01 LER=6.421e-02
+***Loss=1.78066e-01
+Epoch 136 Train Time 11.051982641220093s
+
+No improvement. Patience: 1/30
+Training epoch 137, Batch 49/98: LR=4.32e-04, Loss=1.79441e-01 LER=6.535e-02
+***Loss=1.79441e-01
+Training epoch 137, Batch 98/98: LR=4.32e-04, Loss=1.77724e-01 LER=6.449e-02
+***Loss=1.77724e-01
+Epoch 137 Train Time 10.906018018722534s
+
+No improvement. Patience: 2/30
+Training epoch 138, Batch 49/98: LR=4.25e-04, Loss=1.82407e-01 LER=6.555e-02
+***Loss=1.82407e-01
+Training epoch 138, Batch 98/98: LR=4.25e-04, Loss=1.80463e-01 LER=6.492e-02
+***Loss=1.80463e-01
+Epoch 138 Train Time 10.460144996643066s
+
+No improvement. Patience: 3/30
+Training epoch 139, Batch 49/98: LR=4.19e-04, Loss=1.78207e-01 LER=6.374e-02
+***Loss=1.78207e-01
+Training epoch 139, Batch 98/98: LR=4.19e-04, Loss=1.78101e-01 LER=6.429e-02
+***Loss=1.78101e-01
+Epoch 139 Train Time 11.063626766204834s
+
+No improvement. Patience: 4/30
+Training epoch 140, Batch 49/98: LR=4.13e-04, Loss=1.74586e-01 LER=6.188e-02
+***Loss=1.74586e-01
+Training epoch 140, Batch 98/98: LR=4.13e-04, Loss=1.74275e-01 LER=6.251e-02
+***Loss=1.74275e-01
+Epoch 140 Train Time 10.800418615341187s
+
+No improvement. Patience: 5/30
+Test LER  p=7.00e-02: 3.54e-02 p=8.00e-02: 4.69e-02 p=9.00e-02: 5.93e-02 p=1.00e-01: 7.82e-02 p=1.10e-01: 9.28e-02
+Mean LER = 6.252e-02
+# of testing samples: [10240.0, 10240.0, 10240.0, 10240.0, 10240.0]
+ Test Time 30.473397731781006 s
+
+Training epoch 141, Batch 49/98: LR=4.07e-04, Loss=1.74198e-01 LER=6.236e-02
+***Loss=1.74198e-01
+Training epoch 141, Batch 98/98: LR=4.07e-04, Loss=1.73896e-01 LER=6.236e-02
+***Loss=1.73896e-01
+Epoch 141 Train Time 10.640598058700562s
+
+Model Saved - New best loss: 1.73896e-01
+Training epoch 142, Batch 49/98: LR=4.01e-04, Loss=1.76585e-01 LER=6.320e-02
+***Loss=1.76585e-01
+Training epoch 142, Batch 98/98: LR=4.01e-04, Loss=1.77016e-01 LER=6.382e-02
+***Loss=1.77016e-01
+Epoch 142 Train Time 10.870601177215576s
+
+No improvement. Patience: 1/30
+Training epoch 143, Batch 49/98: LR=3.95e-04, Loss=1.71741e-01 LER=6.260e-02
+***Loss=1.71741e-01
+Training epoch 143, Batch 98/98: LR=3.95e-04, Loss=1.75659e-01 LER=6.369e-02
+***Loss=1.75659e-01
+Epoch 143 Train Time 10.800885200500488s
+
+No improvement. Patience: 2/30
+Training epoch 144, Batch 49/98: LR=3.88e-04, Loss=1.75944e-01 LER=6.354e-02
+***Loss=1.75944e-01
+Training epoch 144, Batch 98/98: LR=3.88e-04, Loss=1.76949e-01 LER=6.400e-02
+***Loss=1.76949e-01
+Epoch 144 Train Time 10.87065601348877s
+
+No improvement. Patience: 3/30
+Training epoch 145, Batch 49/98: LR=3.82e-04, Loss=1.78177e-01 LER=6.395e-02
+***Loss=1.78177e-01
+Training epoch 145, Batch 98/98: LR=3.82e-04, Loss=1.77203e-01 LER=6.392e-02
+***Loss=1.77203e-01
+Epoch 145 Train Time 10.70478892326355s
+
+No improvement. Patience: 4/30
+Training epoch 146, Batch 49/98: LR=3.76e-04, Loss=1.74070e-01 LER=6.276e-02
+***Loss=1.74070e-01
+Training epoch 146, Batch 98/98: LR=3.76e-04, Loss=1.74382e-01 LER=6.314e-02
+***Loss=1.74382e-01
+Epoch 146 Train Time 11.201952457427979s
+
+No improvement. Patience: 5/30
+Training epoch 147, Batch 49/98: LR=3.70e-04, Loss=1.77117e-01 LER=6.318e-02
+***Loss=1.77117e-01
+Training epoch 147, Batch 98/98: LR=3.70e-04, Loss=1.76169e-01 LER=6.334e-02
+***Loss=1.76169e-01
+Epoch 147 Train Time 11.405632019042969s
+
+No improvement. Patience: 6/30
+Training epoch 148, Batch 49/98: LR=3.64e-04, Loss=1.78863e-01 LER=6.348e-02
+***Loss=1.78863e-01
+Training epoch 148, Batch 98/98: LR=3.64e-04, Loss=1.76428e-01 LER=6.303e-02
+***Loss=1.76428e-01
+Epoch 148 Train Time 11.31680178642273s
+
+No improvement. Patience: 7/30
+Training epoch 149, Batch 49/98: LR=3.58e-04, Loss=1.79056e-01 LER=6.479e-02
+***Loss=1.79056e-01
+Training epoch 149, Batch 98/98: LR=3.58e-04, Loss=1.79295e-01 LER=6.496e-02
+***Loss=1.79295e-01
+Epoch 149 Train Time 11.034599542617798s
+
+No improvement. Patience: 8/30
+Training epoch 150, Batch 49/98: LR=3.52e-04, Loss=1.78564e-01 LER=6.497e-02
+***Loss=1.78564e-01
+Training epoch 150, Batch 98/98: LR=3.52e-04, Loss=1.77908e-01 LER=6.463e-02
+***Loss=1.77908e-01
+Epoch 150 Train Time 11.231626510620117s
+
+No improvement. Patience: 9/30
+Test LER  p=7.00e-02: 3.64e-02 p=8.00e-02: 4.90e-02 p=9.00e-02: 6.55e-02 p=1.00e-01: 7.67e-02 p=1.10e-01: 9.26e-02
+Mean LER = 6.404e-02
+# of testing samples: [10240.0, 10240.0, 10240.0, 10240.0, 10240.0]
+ Test Time 30.54130983352661 s
+
+Training epoch 151, Batch 49/98: LR=3.46e-04, Loss=1.70158e-01 LER=6.212e-02
+***Loss=1.70158e-01
+Training epoch 151, Batch 98/98: LR=3.46e-04, Loss=1.72502e-01 LER=6.220e-02
+***Loss=1.72502e-01
+Epoch 151 Train Time 10.672571897506714s
+
+Model Saved - New best loss: 1.72502e-01
+Training epoch 152, Batch 49/98: LR=3.40e-04, Loss=1.73695e-01 LER=6.218e-02
+***Loss=1.73695e-01
+Training epoch 152, Batch 98/98: LR=3.40e-04, Loss=1.76395e-01 LER=6.340e-02
+***Loss=1.76395e-01
+Epoch 152 Train Time 10.97391653060913s
+
+No improvement. Patience: 1/30
+Training epoch 153, Batch 49/98: LR=3.34e-04, Loss=1.76443e-01 LER=6.429e-02
+***Loss=1.76443e-01
+Training epoch 153, Batch 98/98: LR=3.34e-04, Loss=1.79187e-01 LER=6.484e-02
+***Loss=1.79187e-01
+Epoch 153 Train Time 11.152725219726562s
+
+No improvement. Patience: 2/30
+Training epoch 154, Batch 49/98: LR=3.28e-04, Loss=1.81781e-01 LER=6.589e-02
+***Loss=1.81781e-01
+Training epoch 154, Batch 98/98: LR=3.28e-04, Loss=1.78508e-01 LER=6.452e-02
+***Loss=1.78508e-01
+Epoch 154 Train Time 10.789008855819702s
+
+No improvement. Patience: 3/30
+Training epoch 155, Batch 49/98: LR=3.22e-04, Loss=1.77993e-01 LER=6.461e-02
+***Loss=1.77993e-01
+Training epoch 155, Batch 98/98: LR=3.22e-04, Loss=1.76031e-01 LER=6.327e-02
+***Loss=1.76031e-01
+Epoch 155 Train Time 10.784507751464844s
+
+No improvement. Patience: 4/30
+Training epoch 156, Batch 49/98: LR=3.17e-04, Loss=1.72185e-01 LER=6.182e-02
+***Loss=1.72185e-01
+Training epoch 156, Batch 98/98: LR=3.17e-04, Loss=1.73989e-01 LER=6.201e-02
+***Loss=1.73989e-01
+Epoch 156 Train Time 11.242243766784668s
+
+No improvement. Patience: 5/30
+Training epoch 157, Batch 49/98: LR=3.11e-04, Loss=1.75645e-01 LER=6.310e-02
+***Loss=1.75645e-01
+Training epoch 157, Batch 98/98: LR=3.11e-04, Loss=1.73878e-01 LER=6.195e-02
+***Loss=1.73878e-01
+Epoch 157 Train Time 11.253368377685547s
+
+No improvement. Patience: 6/30
+Training epoch 158, Batch 49/98: LR=3.05e-04, Loss=1.71059e-01 LER=6.156e-02
+***Loss=1.71059e-01
+Training epoch 158, Batch 98/98: LR=3.05e-04, Loss=1.73168e-01 LER=6.263e-02
+***Loss=1.73168e-01
+Epoch 158 Train Time 11.008052349090576s
+
+No improvement. Patience: 7/30
+Training epoch 159, Batch 49/98: LR=2.99e-04, Loss=1.73415e-01 LER=6.378e-02
+***Loss=1.73415e-01
+Training epoch 159, Batch 98/98: LR=2.99e-04, Loss=1.73981e-01 LER=6.347e-02
+***Loss=1.73981e-01
+Epoch 159 Train Time 10.937151193618774s
+
+No improvement. Patience: 8/30
+Training epoch 160, Batch 49/98: LR=2.94e-04, Loss=1.70963e-01 LER=6.152e-02
+***Loss=1.70963e-01
+Training epoch 160, Batch 98/98: LR=2.94e-04, Loss=1.72591e-01 LER=6.243e-02
+***Loss=1.72591e-01
+Epoch 160 Train Time 10.689685821533203s
+
+No improvement. Patience: 9/30
+Test LER  p=7.00e-02: 3.56e-02 p=8.00e-02: 4.57e-02 p=9.00e-02: 5.71e-02 p=1.00e-01: 7.28e-02 p=1.10e-01: 9.90e-02
+Mean LER = 6.205e-02
+# of testing samples: [10240.0, 10240.0, 10240.0, 10240.0, 10240.0]
+ Test Time 30.62749433517456 s
+
+Training epoch 161, Batch 49/98: LR=2.88e-04, Loss=1.76640e-01 LER=6.328e-02
+***Loss=1.76640e-01
+Training epoch 161, Batch 98/98: LR=2.88e-04, Loss=1.76237e-01 LER=6.303e-02
+***Loss=1.76237e-01
+Epoch 161 Train Time 10.922017812728882s
+
+No improvement. Patience: 10/30
+Training epoch 162, Batch 49/98: LR=2.82e-04, Loss=1.71341e-01 LER=6.206e-02
+***Loss=1.71341e-01
+Training epoch 162, Batch 98/98: LR=2.82e-04, Loss=1.74681e-01 LER=6.322e-02
+***Loss=1.74681e-01
+Epoch 162 Train Time 11.187880754470825s
+
+No improvement. Patience: 11/30
+Training epoch 163, Batch 49/98: LR=2.77e-04, Loss=1.72070e-01 LER=6.282e-02
+***Loss=1.72070e-01
+Training epoch 163, Batch 98/98: LR=2.77e-04, Loss=1.71692e-01 LER=6.252e-02
+***Loss=1.71692e-01
+Epoch 163 Train Time 10.544949769973755s
+
+Model Saved - New best loss: 1.71692e-01
+Training epoch 164, Batch 49/98: LR=2.71e-04, Loss=1.70401e-01 LER=6.132e-02
+***Loss=1.70401e-01
+Training epoch 164, Batch 98/98: LR=2.71e-04, Loss=1.73609e-01 LER=6.276e-02
+***Loss=1.73609e-01
+Epoch 164 Train Time 11.14516282081604s
+
+No improvement. Patience: 1/30
+Training epoch 165, Batch 49/98: LR=2.65e-04, Loss=1.78752e-01 LER=6.483e-02
+***Loss=1.78752e-01
+Training epoch 165, Batch 98/98: LR=2.65e-04, Loss=1.78142e-01 LER=6.459e-02
+***Loss=1.78142e-01
+Epoch 165 Train Time 11.068528175354004s
+
+No improvement. Patience: 2/30
+Training epoch 166, Batch 49/98: LR=2.60e-04, Loss=1.78535e-01 LER=6.521e-02
+***Loss=1.78535e-01
+Training epoch 166, Batch 98/98: LR=2.60e-04, Loss=1.76785e-01 LER=6.378e-02
+***Loss=1.76785e-01
+Epoch 166 Train Time 11.105655431747437s
+
+No improvement. Patience: 3/30
+Training epoch 167, Batch 49/98: LR=2.54e-04, Loss=1.72213e-01 LER=6.266e-02
+***Loss=1.72213e-01
+Training epoch 167, Batch 98/98: LR=2.54e-04, Loss=1.74589e-01 LER=6.342e-02
+***Loss=1.74589e-01
+Epoch 167 Train Time 11.362328052520752s
+
+No improvement. Patience: 4/30
+Training epoch 168, Batch 49/98: LR=2.49e-04, Loss=1.73851e-01 LER=6.234e-02
+***Loss=1.73851e-01
+Training epoch 168, Batch 98/98: LR=2.49e-04, Loss=1.74961e-01 LER=6.277e-02
+***Loss=1.74961e-01
+Epoch 168 Train Time 11.035244941711426s
+
+No improvement. Patience: 5/30
+Training epoch 169, Batch 49/98: LR=2.44e-04, Loss=1.71508e-01 LER=6.246e-02
+***Loss=1.71508e-01
+Training epoch 169, Batch 98/98: LR=2.44e-04, Loss=1.73198e-01 LER=6.308e-02
+***Loss=1.73198e-01
+Epoch 169 Train Time 11.284824848175049s
+
+No improvement. Patience: 6/30
+Training epoch 170, Batch 49/98: LR=2.38e-04, Loss=1.76222e-01 LER=6.433e-02
+***Loss=1.76222e-01
+Training epoch 170, Batch 98/98: LR=2.38e-04, Loss=1.74195e-01 LER=6.353e-02
+***Loss=1.74195e-01
+Epoch 170 Train Time 10.640357732772827s
+
+No improvement. Patience: 7/30
+Test LER  p=7.00e-02: 3.43e-02 p=8.00e-02: 4.22e-02 p=9.00e-02: 5.71e-02 p=1.00e-01: 8.09e-02 p=1.10e-01: 9.41e-02
+Mean LER = 6.172e-02
+# of testing samples: [10240.0, 10240.0, 10240.0, 10240.0, 10240.0]
+ Test Time 30.487021446228027 s
+
+Training epoch 171, Batch 49/98: LR=2.33e-04, Loss=1.72355e-01 LER=6.294e-02
+***Loss=1.72355e-01
+Training epoch 171, Batch 98/98: LR=2.33e-04, Loss=1.73787e-01 LER=6.317e-02
+***Loss=1.73787e-01
+Epoch 171 Train Time 10.957100629806519s
+
+No improvement. Patience: 8/30
+Training epoch 172, Batch 49/98: LR=2.28e-04, Loss=1.71976e-01 LER=6.178e-02
+***Loss=1.71976e-01
+Training epoch 172, Batch 98/98: LR=2.28e-04, Loss=1.71527e-01 LER=6.223e-02
+***Loss=1.71527e-01
+Epoch 172 Train Time 10.905579090118408s
+
+Model Saved - New best loss: 1.71527e-01
+Training epoch 173, Batch 49/98: LR=2.22e-04, Loss=1.77627e-01 LER=6.437e-02
+***Loss=1.77627e-01
+Training epoch 173, Batch 98/98: LR=2.22e-04, Loss=1.75507e-01 LER=6.355e-02
+***Loss=1.75507e-01
+Epoch 173 Train Time 10.701358079910278s
+
+No improvement. Patience: 1/30
+Training epoch 174, Batch 49/98: LR=2.17e-04, Loss=1.72187e-01 LER=6.071e-02
+***Loss=1.72187e-01
+Training epoch 174, Batch 98/98: LR=2.17e-04, Loss=1.72252e-01 LER=6.153e-02
+***Loss=1.72252e-01
+Epoch 174 Train Time 10.96079707145691s
+
+No improvement. Patience: 2/30
+Training epoch 175, Batch 49/98: LR=2.12e-04, Loss=1.76486e-01 LER=6.423e-02
+***Loss=1.76486e-01
+Training epoch 175, Batch 98/98: LR=2.12e-04, Loss=1.76549e-01 LER=6.422e-02
+***Loss=1.76549e-01
+Epoch 175 Train Time 10.922282695770264s
+
+No improvement. Patience: 3/30
+Training epoch 176, Batch 49/98: LR=2.07e-04, Loss=1.76030e-01 LER=6.415e-02
+***Loss=1.76030e-01
+Training epoch 176, Batch 98/98: LR=2.07e-04, Loss=1.74397e-01 LER=6.320e-02
+***Loss=1.74397e-01
+Epoch 176 Train Time 10.823592901229858s
+
+No improvement. Patience: 4/30
+Training epoch 177, Batch 49/98: LR=2.02e-04, Loss=1.75716e-01 LER=6.344e-02
+***Loss=1.75716e-01
+Training epoch 177, Batch 98/98: LR=2.02e-04, Loss=1.74050e-01 LER=6.309e-02
+***Loss=1.74050e-01
+Epoch 177 Train Time 10.835342168807983s
+
+No improvement. Patience: 5/30
+Training epoch 178, Batch 49/98: LR=1.97e-04, Loss=1.76547e-01 LER=6.388e-02
+***Loss=1.76547e-01
+Training epoch 178, Batch 98/98: LR=1.97e-04, Loss=1.74306e-01 LER=6.256e-02
+***Loss=1.74306e-01
+Epoch 178 Train Time 10.861108541488647s
+
+No improvement. Patience: 6/30
+Training epoch 179, Batch 49/98: LR=1.92e-04, Loss=1.69755e-01 LER=6.057e-02
+***Loss=1.69755e-01
+Training epoch 179, Batch 98/98: LR=1.92e-04, Loss=1.71254e-01 LER=6.174e-02
+***Loss=1.71254e-01
+Epoch 179 Train Time 10.502108335494995s
+
+Model Saved - New best loss: 1.71254e-01
+Training epoch 180, Batch 49/98: LR=1.87e-04, Loss=1.74679e-01 LER=6.248e-02
+***Loss=1.74679e-01
+Training epoch 180, Batch 98/98: LR=1.87e-04, Loss=1.75956e-01 LER=6.300e-02
+***Loss=1.75956e-01
+Epoch 180 Train Time 11.475171566009521s
+
+No improvement. Patience: 1/30
+Test LER  p=7.00e-02: 3.35e-02 p=8.00e-02: 4.49e-02 p=9.00e-02: 5.90e-02 p=1.00e-01: 8.18e-02 p=1.10e-01: 9.54e-02
+Mean LER = 6.293e-02
+# of testing samples: [10240.0, 10240.0, 10240.0, 10240.0, 10240.0]
+ Test Time 30.600645542144775 s
+
+Training epoch 181, Batch 49/98: LR=1.82e-04, Loss=1.72523e-01 LER=6.198e-02
+***Loss=1.72523e-01
+Training epoch 181, Batch 98/98: LR=1.82e-04, Loss=1.73056e-01 LER=6.224e-02
+***Loss=1.73056e-01
+Epoch 181 Train Time 11.061014652252197s
+
+No improvement. Patience: 2/30
+Training epoch 182, Batch 49/98: LR=1.77e-04, Loss=1.73759e-01 LER=6.294e-02
+***Loss=1.73759e-01
+Training epoch 182, Batch 98/98: LR=1.77e-04, Loss=1.72513e-01 LER=6.297e-02
+***Loss=1.72513e-01
+Epoch 182 Train Time 10.995870590209961s
+
+No improvement. Patience: 3/30
+Training epoch 183, Batch 49/98: LR=1.73e-04, Loss=1.73618e-01 LER=6.336e-02
+***Loss=1.73618e-01
+Training epoch 183, Batch 98/98: LR=1.73e-04, Loss=1.72377e-01 LER=6.241e-02
+***Loss=1.72377e-01
+Epoch 183 Train Time 10.903731107711792s
+
+No improvement. Patience: 4/30
+Training epoch 184, Batch 49/98: LR=1.68e-04, Loss=1.73646e-01 LER=6.392e-02
+***Loss=1.73646e-01
+Training epoch 184, Batch 98/98: LR=1.68e-04, Loss=1.72818e-01 LER=6.317e-02
+***Loss=1.72818e-01
+Epoch 184 Train Time 11.007755994796753s
+
+No improvement. Patience: 5/30
+Training epoch 185, Batch 49/98: LR=1.63e-04, Loss=1.76085e-01 LER=6.459e-02
+***Loss=1.76085e-01
+Training epoch 185, Batch 98/98: LR=1.63e-04, Loss=1.75562e-01 LER=6.416e-02
+***Loss=1.75562e-01
+Epoch 185 Train Time 10.923173904418945s
+
+No improvement. Patience: 6/30
+Training epoch 186, Batch 49/98: LR=1.59e-04, Loss=1.72558e-01 LER=6.272e-02
+***Loss=1.72558e-01
+Training epoch 186, Batch 98/98: LR=1.59e-04, Loss=1.74535e-01 LER=6.322e-02
+***Loss=1.74535e-01
+Epoch 186 Train Time 10.699357986450195s
+
+No improvement. Patience: 7/30
+Training epoch 187, Batch 49/98: LR=1.54e-04, Loss=1.75518e-01 LER=6.318e-02
+***Loss=1.75518e-01
+Training epoch 187, Batch 98/98: LR=1.54e-04, Loss=1.74289e-01 LER=6.335e-02
+***Loss=1.74289e-01
+Epoch 187 Train Time 10.637402534484863s
+
+No improvement. Patience: 8/30
+Training epoch 188, Batch 49/98: LR=1.50e-04, Loss=1.68408e-01 LER=6.087e-02
+***Loss=1.68408e-01
+Training epoch 188, Batch 98/98: LR=1.50e-04, Loss=1.70515e-01 LER=6.151e-02
+***Loss=1.70515e-01
+Epoch 188 Train Time 10.544007778167725s
+
+Model Saved - New best loss: 1.70515e-01
+Training epoch 189, Batch 49/98: LR=1.45e-04, Loss=1.75066e-01 LER=6.388e-02
+***Loss=1.75066e-01
+Training epoch 189, Batch 98/98: LR=1.45e-04, Loss=1.76301e-01 LER=6.399e-02
+***Loss=1.76301e-01
+Epoch 189 Train Time 10.964611768722534s
+
+No improvement. Patience: 1/30
+Training epoch 190, Batch 49/98: LR=1.41e-04, Loss=1.71304e-01 LER=6.116e-02
+***Loss=1.71304e-01
+Training epoch 190, Batch 98/98: LR=1.41e-04, Loss=1.73710e-01 LER=6.190e-02
+***Loss=1.73710e-01
+Epoch 190 Train Time 10.998363018035889s
+
+No improvement. Patience: 2/30
+Test LER  p=7.00e-02: 3.24e-02 p=8.00e-02: 4.69e-02 p=9.00e-02: 5.66e-02 p=1.00e-01: 7.54e-02 p=1.10e-01: 9.06e-02
+Mean LER = 6.039e-02
+# of testing samples: [10240.0, 10240.0, 10240.0, 10240.0, 10240.0]
+ Test Time 30.556167364120483 s
+
+Training epoch 191, Batch 49/98: LR=1.36e-04, Loss=1.71922e-01 LER=6.110e-02
+***Loss=1.71922e-01
+Training epoch 191, Batch 98/98: LR=1.36e-04, Loss=1.71500e-01 LER=6.108e-02
+***Loss=1.71500e-01
+Epoch 191 Train Time 10.764066457748413s
+
+No improvement. Patience: 3/30
+Training epoch 192, Batch 49/98: LR=1.32e-04, Loss=1.72675e-01 LER=6.190e-02
+***Loss=1.72675e-01
+Training epoch 192, Batch 98/98: LR=1.32e-04, Loss=1.73378e-01 LER=6.286e-02
+***Loss=1.73378e-01
+Epoch 192 Train Time 10.805978059768677s
+
+No improvement. Patience: 4/30
+Training epoch 193, Batch 49/98: LR=1.28e-04, Loss=1.77811e-01 LER=6.399e-02
+***Loss=1.77811e-01
+Training epoch 193, Batch 98/98: LR=1.28e-04, Loss=1.74592e-01 LER=6.327e-02
+***Loss=1.74592e-01
+Epoch 193 Train Time 11.021496057510376s
+
+No improvement. Patience: 5/30
+Training epoch 194, Batch 49/98: LR=1.24e-04, Loss=1.75663e-01 LER=6.356e-02
+***Loss=1.75663e-01
+Training epoch 194, Batch 98/98: LR=1.24e-04, Loss=1.72766e-01 LER=6.267e-02
+***Loss=1.72766e-01
+Epoch 194 Train Time 11.278676986694336s
+
+No improvement. Patience: 6/30
+Training epoch 195, Batch 49/98: LR=1.20e-04, Loss=1.66355e-01 LER=6.065e-02
+***Loss=1.66355e-01
+Training epoch 195, Batch 98/98: LR=1.20e-04, Loss=1.67383e-01 LER=6.112e-02
+***Loss=1.67383e-01
+Epoch 195 Train Time 10.760218858718872s
+
+Model Saved - New best loss: 1.67383e-01
+Training epoch 196, Batch 49/98: LR=1.16e-04, Loss=1.71427e-01 LER=6.178e-02
+***Loss=1.71427e-01
+Training epoch 196, Batch 98/98: LR=1.16e-04, Loss=1.73576e-01 LER=6.282e-02
+***Loss=1.73576e-01
+Epoch 196 Train Time 10.788358449935913s
+
+No improvement. Patience: 1/30
+Training epoch 197, Batch 49/98: LR=1.12e-04, Loss=1.68467e-01 LER=6.045e-02
+***Loss=1.68467e-01
+Training epoch 197, Batch 98/98: LR=1.12e-04, Loss=1.70155e-01 LER=6.164e-02
+***Loss=1.70155e-01
+Epoch 197 Train Time 10.888838529586792s
+
+No improvement. Patience: 2/30
+Training epoch 198, Batch 49/98: LR=1.08e-04, Loss=1.70228e-01 LER=6.126e-02
+***Loss=1.70228e-01
+Training epoch 198, Batch 98/98: LR=1.08e-04, Loss=1.73491e-01 LER=6.202e-02
+***Loss=1.73491e-01
+Epoch 198 Train Time 10.929694652557373s
+
+No improvement. Patience: 3/30
+Training epoch 199, Batch 49/98: LR=1.04e-04, Loss=1.69028e-01 LER=6.075e-02
+***Loss=1.69028e-01
+Training epoch 199, Batch 98/98: LR=1.04e-04, Loss=1.71175e-01 LER=6.156e-02
+***Loss=1.71175e-01
+Epoch 199 Train Time 10.946985483169556s
+
+No improvement. Patience: 4/30
+Training epoch 200, Batch 49/98: LR=1.00e-04, Loss=1.67597e-01 LER=6.045e-02
+***Loss=1.67597e-01
+Training epoch 200, Batch 98/98: LR=1.00e-04, Loss=1.69503e-01 LER=6.133e-02
+***Loss=1.69503e-01
+Epoch 200 Train Time 10.85296368598938s
+
+No improvement. Patience: 5/30
+Test LER  p=7.00e-02: 3.36e-02 p=8.00e-02: 4.68e-02 p=9.00e-02: 5.88e-02 p=1.00e-01: 7.64e-02 p=1.10e-01: 9.46e-02
+Mean LER = 6.203e-02
+# of testing samples: [10240.0, 10240.0, 10240.0, 10240.0, 10240.0]
+ Test Time 30.705943822860718 s
+
+Training epoch 201, Batch 49/98: LR=9.64e-05, Loss=1.72105e-01 LER=6.170e-02
+***Loss=1.72105e-01
+Training epoch 201, Batch 98/98: LR=9.64e-05, Loss=1.72428e-01 LER=6.256e-02
+***Loss=1.72428e-01
+Epoch 201 Train Time 10.719701766967773s
+
+No improvement. Patience: 6/30
+Training epoch 202, Batch 49/98: LR=9.27e-05, Loss=1.73674e-01 LER=6.296e-02
+***Loss=1.73674e-01
+Training epoch 202, Batch 98/98: LR=9.27e-05, Loss=1.72766e-01 LER=6.240e-02
+***Loss=1.72766e-01
+Epoch 202 Train Time 10.932749032974243s
+
+No improvement. Patience: 7/30
+Training epoch 203, Batch 49/98: LR=8.91e-05, Loss=1.72409e-01 LER=6.202e-02
+***Loss=1.72409e-01
+Training epoch 203, Batch 98/98: LR=8.91e-05, Loss=1.73273e-01 LER=6.279e-02
+***Loss=1.73273e-01
+Epoch 203 Train Time 10.775676250457764s
+
+No improvement. Patience: 8/30
+Training epoch 204, Batch 49/98: LR=8.56e-05, Loss=1.75048e-01 LER=6.390e-02
+***Loss=1.75048e-01
+Training epoch 204, Batch 98/98: LR=8.56e-05, Loss=1.74735e-01 LER=6.299e-02
+***Loss=1.74735e-01
+Epoch 204 Train Time 10.595944166183472s
+
+No improvement. Patience: 9/30
+Training epoch 205, Batch 49/98: LR=8.22e-05, Loss=1.73110e-01 LER=6.304e-02
+***Loss=1.73110e-01
+Training epoch 205, Batch 98/98: LR=8.22e-05, Loss=1.71603e-01 LER=6.220e-02
+***Loss=1.71603e-01
+Epoch 205 Train Time 11.044513463973999s
+
+No improvement. Patience: 10/30
+Training epoch 206, Batch 49/98: LR=7.88e-05, Loss=1.70293e-01 LER=6.274e-02
+***Loss=1.70293e-01
+Training epoch 206, Batch 98/98: LR=7.88e-05, Loss=1.70164e-01 LER=6.186e-02
+***Loss=1.70164e-01
+Epoch 206 Train Time 11.024899005889893s
+
+No improvement. Patience: 11/30
+Training epoch 207, Batch 49/98: LR=7.54e-05, Loss=1.67753e-01 LER=6.071e-02
+***Loss=1.67753e-01
+Training epoch 207, Batch 98/98: LR=7.54e-05, Loss=1.70054e-01 LER=6.169e-02
+***Loss=1.70054e-01
+Epoch 207 Train Time 10.907368659973145s
+
+No improvement. Patience: 12/30
+Training epoch 208, Batch 49/98: LR=7.22e-05, Loss=1.68842e-01 LER=6.023e-02
+***Loss=1.68842e-01
+Training epoch 208, Batch 98/98: LR=7.22e-05, Loss=1.69414e-01 LER=6.060e-02
+***Loss=1.69414e-01
+Epoch 208 Train Time 11.082892656326294s
+
+No improvement. Patience: 13/30
+Training epoch 209, Batch 49/98: LR=6.90e-05, Loss=1.75718e-01 LER=6.405e-02
+***Loss=1.75718e-01
+Training epoch 209, Batch 98/98: LR=6.90e-05, Loss=1.73151e-01 LER=6.230e-02
+***Loss=1.73151e-01
+Epoch 209 Train Time 10.52113127708435s
+
+No improvement. Patience: 14/30
+Training epoch 210, Batch 49/98: LR=6.58e-05, Loss=1.69125e-01 LER=6.045e-02
+***Loss=1.69125e-01
+Training epoch 210, Batch 98/98: LR=6.58e-05, Loss=1.71994e-01 LER=6.173e-02
+***Loss=1.71994e-01
+Epoch 210 Train Time 11.141155004501343s
+
+No improvement. Patience: 15/30
+Test LER  p=7.00e-02: 3.35e-02 p=8.00e-02: 4.18e-02 p=9.00e-02: 5.66e-02 p=1.00e-01: 7.73e-02 p=1.10e-01: 9.20e-02
+Mean LER = 6.025e-02
+# of testing samples: [10240.0, 10240.0, 10240.0, 10240.0, 10240.0]
+ Test Time 30.488383769989014 s
+
+Training epoch 211, Batch 49/98: LR=6.28e-05, Loss=1.67951e-01 LER=6.053e-02
+***Loss=1.67951e-01
+Training epoch 211, Batch 98/98: LR=6.28e-05, Loss=1.69955e-01 LER=6.139e-02
+***Loss=1.69955e-01
+Epoch 211 Train Time 11.140680074691772s
+
+No improvement. Patience: 16/30
+Training epoch 212, Batch 49/98: LR=5.98e-05, Loss=1.70143e-01 LER=6.093e-02
+***Loss=1.70143e-01
+Training epoch 212, Batch 98/98: LR=5.98e-05, Loss=1.71446e-01 LER=6.077e-02
+***Loss=1.71446e-01
+Epoch 212 Train Time 10.96147084236145s
+
+No improvement. Patience: 17/30
+Training epoch 213, Batch 49/98: LR=5.69e-05, Loss=1.70116e-01 LER=6.238e-02
+***Loss=1.70116e-01
+Training epoch 213, Batch 98/98: LR=5.69e-05, Loss=1.71078e-01 LER=6.290e-02
+***Loss=1.71078e-01
+Epoch 213 Train Time 10.732960939407349s
+
+No improvement. Patience: 18/30
+Training epoch 214, Batch 49/98: LR=5.40e-05, Loss=1.70689e-01 LER=6.242e-02
+***Loss=1.70689e-01
+Training epoch 214, Batch 98/98: LR=5.40e-05, Loss=1.72085e-01 LER=6.251e-02
+***Loss=1.72085e-01
+Epoch 214 Train Time 11.058489084243774s
+
+No improvement. Patience: 19/30
+Training epoch 215, Batch 49/98: LR=5.12e-05, Loss=1.73446e-01 LER=6.204e-02
+***Loss=1.73446e-01
+Training epoch 215, Batch 98/98: LR=5.12e-05, Loss=1.73329e-01 LER=6.199e-02
+***Loss=1.73329e-01
+Epoch 215 Train Time 11.02709698677063s
+
+No improvement. Patience: 20/30
+Training epoch 216, Batch 49/98: LR=4.85e-05, Loss=1.70982e-01 LER=6.136e-02
+***Loss=1.70982e-01
+Training epoch 216, Batch 98/98: LR=4.85e-05, Loss=1.72050e-01 LER=6.245e-02
+***Loss=1.72050e-01
+Epoch 216 Train Time 10.948068380355835s
+
+No improvement. Patience: 21/30
+Training epoch 217, Batch 49/98: LR=4.59e-05, Loss=1.67815e-01 LER=6.101e-02
+***Loss=1.67815e-01
+Training epoch 217, Batch 98/98: LR=4.59e-05, Loss=1.70742e-01 LER=6.198e-02
+***Loss=1.70742e-01
+Epoch 217 Train Time 10.887751817703247s
+
+No improvement. Patience: 22/30
+Training epoch 218, Batch 49/98: LR=4.33e-05, Loss=1.72390e-01 LER=6.322e-02
+***Loss=1.72390e-01
+Training epoch 218, Batch 98/98: LR=4.33e-05, Loss=1.72469e-01 LER=6.247e-02
+***Loss=1.72469e-01
+Epoch 218 Train Time 10.48380970954895s
+
+No improvement. Patience: 23/30
+Training epoch 219, Batch 49/98: LR=4.08e-05, Loss=1.71121e-01 LER=6.288e-02
+***Loss=1.71121e-01
+Training epoch 219, Batch 98/98: LR=4.08e-05, Loss=1.73979e-01 LER=6.291e-02
+***Loss=1.73979e-01
+Epoch 219 Train Time 10.70560622215271s
+
+No improvement. Patience: 24/30
+Training epoch 220, Batch 49/98: LR=3.84e-05, Loss=1.71100e-01 LER=6.192e-02
+***Loss=1.71100e-01
+Training epoch 220, Batch 98/98: LR=3.84e-05, Loss=1.70910e-01 LER=6.176e-02
+***Loss=1.70910e-01
+Epoch 220 Train Time 10.844547748565674s
+
+No improvement. Patience: 25/30
+Test LER  p=7.00e-02: 3.31e-02 p=8.00e-02: 4.43e-02 p=9.00e-02: 5.97e-02 p=1.00e-01: 7.63e-02 p=1.10e-01: 9.60e-02
+Mean LER = 6.187e-02
+# of testing samples: [10240.0, 10240.0, 10240.0, 10240.0, 10240.0]
+ Test Time 30.537445783615112 s
+
+Training epoch 221, Batch 49/98: LR=3.61e-05, Loss=1.71644e-01 LER=6.071e-02
+***Loss=1.71644e-01
+Training epoch 221, Batch 98/98: LR=3.61e-05, Loss=1.70539e-01 LER=6.097e-02
+***Loss=1.70539e-01
+Epoch 221 Train Time 10.893321752548218s
+
+No improvement. Patience: 26/30
+Training epoch 222, Batch 49/98: LR=3.38e-05, Loss=1.70605e-01 LER=6.270e-02
+***Loss=1.70605e-01
+Training epoch 222, Batch 98/98: LR=3.38e-05, Loss=1.69877e-01 LER=6.156e-02
+***Loss=1.69877e-01
+Epoch 222 Train Time 11.572692394256592s
+
+No improvement. Patience: 27/30
+Training epoch 223, Batch 49/98: LR=3.16e-05, Loss=1.70681e-01 LER=6.276e-02
+***Loss=1.70681e-01
+Training epoch 223, Batch 98/98: LR=3.16e-05, Loss=1.71285e-01 LER=6.249e-02
+***Loss=1.71285e-01
+Epoch 223 Train Time 10.808312892913818s
+
+No improvement. Patience: 28/30
+Training epoch 224, Batch 49/98: LR=2.95e-05, Loss=1.71936e-01 LER=6.334e-02
+***Loss=1.71936e-01
+Training epoch 224, Batch 98/98: LR=2.95e-05, Loss=1.70559e-01 LER=6.230e-02
+***Loss=1.70559e-01
+Epoch 224 Train Time 10.907731771469116s
+
+No improvement. Patience: 29/30
+Training epoch 225, Batch 49/98: LR=2.74e-05, Loss=1.72478e-01 LER=6.234e-02
+***Loss=1.72478e-01
+Training epoch 225, Batch 98/98: LR=2.74e-05, Loss=1.72865e-01 LER=6.212e-02
+***Loss=1.72865e-01
+Epoch 225 Train Time 11.187995433807373s
+
+No improvement. Patience: 30/30
+Early stopping triggered after 225 epochs (patience=30)
+Best loss: 1.67383e-01
+Best model loaded
+Test LER  p=7.00e-02: 3.18e-02 p=8.00e-02: 4.50e-02 p=9.00e-02: 6.08e-02 p=1.00e-01: 7.89e-02 p=1.10e-01: 9.12e-02
+Mean LER = 6.156e-02
+# of testing samples: [10240.0, 10240.0, 10240.0, 10240.0, 10240.0]
+ Test Time 31.800556182861328 s
+
