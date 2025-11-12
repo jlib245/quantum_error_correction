@@ -192,6 +192,8 @@ if __name__ == "__main__":
     parser.add_argument('--error_rates', type=float, nargs='+',
                         default=[0.07, 0.08, 0.09, 0.10, 0.11],
                         help='Error rates for training')
+    parser.add_argument('--y_ratio', type=float, default=0.0,
+                        help='Y error ratio (Note: Stim uses depolarizing noise, so this parameter is for compatibility only)')
     parser.add_argument('--patience', type=int, default=40,
                         help='Early stopping patience (0 = disabled)')
     parser.add_argument('--min_delta', type=float, default=0.0,
