@@ -213,6 +213,11 @@ class QECC_Dataset(data.Dataset):
         return torch.cat([e_z, e_x])
 
     def __getitem__(self, index):
+        # index 기반 seed로 매 epoch 같은 데이터 보장
+        local_seed = self.args.seed + index
+        np.random.seed(local_seed)
+        random.seed(local_seed)
+
         p = random.choice(self.ps)
 
         e_full = self.generate_noise(p)
@@ -436,7 +441,7 @@ def train(model, device, train_loader, optimizer, epoch, LR):
     return cum_loss / cum_samples, cum_ber / cum_samples, cum_ler / cum_samples
 
 
-def test(model, device, test_loader_list, ps_range_test, cum_count_lim=10000):
+def test(model, device, test_loader_list, ps_range_test, cum_count_lim):
     model.eval()
     test_loss_ber_list, test_loss_ler_list, cum_samples_all = [], [], []
     t = time.time()
@@ -653,10 +658,7 @@ def main(args):
     patience_counter = 0
 
     for epoch in range(1, args.epochs + 1):
-        # 데이터 생성 seed 리셋 (매 epoch 같은 데이터)
-        set_seed(args.seed)
-
-        # Shuffle seed는 epoch마다 다르게
+        # Shuffle seed는 epoch마다 다르게 (데이터는 index 기반으로 고정)
         g.manual_seed(args.seed + epoch)
 
         loss, ber, ler = train(model, device, train_dataloader, optimizer,
@@ -686,7 +688,7 @@ def main(args):
             break
 
         if epoch % 10 == 0 or epoch in [args.epochs]:
-            test(model, device, test_dataloader_list, ps_test)
+            test(model, device, test_dataloader_list, ps_test, args.test_samples)
 
     model = torch.load(os.path.join(args.path, 'best_model'), weights_only=False).to(device)
 
@@ -710,7 +712,7 @@ def main(args):
             ) for ii in range(len(final_ps_test))
         ]
 
-    final_ler = test(model, device, final_test_list, final_ps_test)
+    final_ler = test(model, device, final_test_list, final_ps_test, args.test_samples)
 
     return {
         'best_loss': best_loss,
@@ -727,6 +729,8 @@ if __name__ == '__main__':
     parser.add_argument('--gpus', type=str, default='0', help='gpus ids')
     parser.add_argument('--batch_size', type=int, default=128)
     parser.add_argument('--test_batch_size', type=int, default=512)
+    parser.add_argument('--test_samples', type=int, default=100000,
+                        help='Number of test samples for evaluation')
     parser.add_argument('--samples_per_epoch', type=int, default=100000,
                         help='Number of samples per training epoch')
     parser.add_argument('--seed', type=int, default=42)
@@ -832,6 +836,20 @@ if __name__ == '__main__':
                         handlers=handlers)
     logging.info(f"Path to model/logs: {model_dir}")
     logging.info(args)
+
+    # Environment info for reproducibility
+    logging.info(f"\n=== Environment Info ===")
+    logging.info(f"PyTorch version: {torch.__version__}")
+    logging.info(f"NumPy version: {np.__version__}")
+    if torch.cuda.is_available():
+        logging.info(f"CUDA version: {torch.version.cuda}")
+        logging.info(f"cuDNN version: {torch.backends.cudnn.version()}")
+        logging.info(f"GPU: {torch.cuda.get_device_name(0)}")
+    elif hasattr(torch, 'xpu') and torch.xpu.is_available():
+        logging.info(f"XPU: {torch.xpu.get_device_name(0)}")
+    else:
+        logging.info("Device: CPU")
+    logging.info(f"========================\n")
 
     # Run experiments
     if args.n_runs > 1:
