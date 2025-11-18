@@ -211,5 +211,3 @@ pyrightconfig.json
 
 Final_Results_QECCT/
 experiments/
-__pycache__/
-*.pyc
