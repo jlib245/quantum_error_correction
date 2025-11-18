@@ -182,7 +182,7 @@ class ECC_Transformer(nn.Module):
         c = copy.deepcopy
 
         # Transformer components
-        attn = MultiHeadedAttention(h, d_model)
+        attn = MultiHeadedAttention(h, d_model, dropout)
         ff = PositionwiseFeedForward(d_model, d_model * 4, dropout)
         self.pos_encoder = PositionalEncoding(d_model, dropout)
 
@@ -191,7 +191,7 @@ class ECC_Transformer(nn.Module):
 
         # Input embedding: each syndrome bit to d_model dimensions
         self.syndrome_len = code.pc_matrix.size(0)
-        self.input_embedding = nn.Linear(1, d_model)
+        self.input_embedding = nn.Embedding(2, d_model)
 
         # CLS token for classification
         self.cls_token = nn.Parameter(torch.randn(1, 1, d_model) * 0.02)
@@ -217,8 +217,8 @@ class ECC_Transformer(nn.Module):
         batch_size = x.size(0)
 
         # 1. Input embedding: each syndrome bit as a token
-        # (Batch, Syndrome_Length) -> (Batch, Syndrome_Length, 1) -> (Batch, Syndrome_Length, d_model)
-        x_emb = self.input_embedding(x.unsqueeze(-1))
+        # (Batch, Syndrome_Length) -> (Batch, Syndrome_Length, d_model)
+        x_emb = self.input_embedding(x.long())
 
         # 2. Prepend CLS token
         cls_tokens = self.cls_token.expand(batch_size, -1, -1)
