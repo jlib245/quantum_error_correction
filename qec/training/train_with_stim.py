@@ -76,10 +76,16 @@ class StimSurfaceCodeDataset(Dataset):
 
         syndrome = detection[0].astype(np.float32)
 
-        # 4-class: combine both observables
-        x_flip = int(observable[0, 0])
-        z_flip = int(observable[0, 1])
-        true_class = z_flip * 2 + x_flip  # 0=I, 1=X, 2=Z, 3=Y
+        # Binary classification: logical error or not
+        # Stim's built-in surface code has 1 observable
+        if observable.shape[1] == 1:
+            # Binary: 0 = no error, 1 = logical error
+            true_class = int(observable[0, 0])
+        else:
+            # 4-class: combine both observables
+            x_flip = int(observable[0, 0])
+            z_flip = int(observable[0, 1])
+            true_class = z_flip * 2 + x_flip  # 0=I, 1=X, 2=Z, 3=Y
 
         return torch.from_numpy(syndrome), torch.tensor(true_class, dtype=torch.long)
 

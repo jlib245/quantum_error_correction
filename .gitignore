@@ -209,7 +209,9 @@ pyrightconfig.json
 
 # End of https://www.toptal.com/developers/gitignore/api/visualstudiocode,linux,python
 
-Final_Results_QECCT/
-experiments/
+
 __pycache__/
 *.pyc
+Final_Results_QECCT/
+experiments/
+Stim_Models/

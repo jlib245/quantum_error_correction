@@ -25,10 +25,9 @@ def create_rotated_surface_code_circuit(
 
     Returns:
         Stim circuit with 2 observables:
-            - Observable 0: X logical (flipped by Z error chains)
-            - Observable 1: Z logical (flipped by X error chains)
+            - Observable 0: Z logical (flipped by X error chains)
+            - Observable 1: X logical (flipped by Z error chains)
     """
-
     # Calculate biased error probabilities
     if y_ratio > 0:
         p_y = p_error * y_ratio
@@ -40,96 +39,59 @@ def create_rotated_surface_code_circuit(
         p_y = p_error / 3
         p_z = p_error / 3
 
-    # Rotated surface code layout
-    # Data qubits on vertices, measure qubits on faces
-
     d = distance
 
-    # Qubit indices
-    # Data qubits: 0 to d*d - 1
-    # X measure qubits: d*d to d*d + num_x_stabilizers - 1
-    # Z measure qubits: d*d + num_x_stabilizers to ...
-
+    # Get stabilizer structure for rotated surface code
+    x_stabilizers, z_stabilizers = get_rotated_stabilizer_qubits(d)
     num_data = d * d
-
-    # Count stabilizers
-    # For rotated surface code:
-    # X stabilizers: (d-1)*d/2 + boundary terms
-    # Z stabilizers: (d-1)*d/2 + boundary terms
-
-    # Use helper to get stabilizer structure
-    x_stabilizers, z_stabilizers = get_stabilizer_qubits(d)
     num_x_stab = len(x_stabilizers)
     num_z_stab = len(z_stabilizers)
 
     # Measure qubit indices
     x_measure_start = num_data
     z_measure_start = num_data + num_x_stab
-
     total_qubits = num_data + num_x_stab + num_z_stab
 
     circuit = stim.Circuit()
 
-    # Initialize data qubits
-    # For tracking both observables, initialize in a product state
-    circuit.append("R", range(num_data))
-
-    # Initialize measure qubits
-    circuit.append("R", range(num_data, total_qubits))
-
-    # Tick
+    # Initialize all qubits
+    circuit.append("R", range(total_qubits))
     circuit.append("TICK")
 
     # QEC rounds
     for r in range(rounds):
-        # Apply noise to data qubits (before stabilizer measurement)
+        # Apply noise to data qubits
         if p_error > 0:
             for q in range(num_data):
                 circuit.append("PAULI_CHANNEL_1", [q], [p_x, p_y, p_z])
-
         circuit.append("TICK")
 
-        # Measure X stabilizers
+        # Measure X stabilizers (detect Z errors)
         for i, stab_qubits in enumerate(x_stabilizers):
             measure_idx = x_measure_start + i
-
-            # Reset measure qubit
             circuit.append("R", [measure_idx])
             circuit.append("H", [measure_idx])
-
-            # CNOTs to data qubits
             for dq in stab_qubits:
                 circuit.append("CX", [measure_idx, dq])
-
             circuit.append("H", [measure_idx])
             circuit.append("M", [measure_idx])
-
         circuit.append("TICK")
 
-        # Measure Z stabilizers
+        # Measure Z stabilizers (detect X errors)
         for i, stab_qubits in enumerate(z_stabilizers):
             measure_idx = z_measure_start + i
-
-            # Reset measure qubit
             circuit.append("R", [measure_idx])
-
-            # CNOTs from data qubits
             for dq in stab_qubits:
                 circuit.append("CX", [dq, measure_idx])
-
             circuit.append("M", [measure_idx])
-
         circuit.append("TICK")
 
-        # Add detectors for this round
-        # X stabilizer detectors
+        # Add detectors
         for i in range(num_x_stab):
             if r == 0:
-                # First round: compare with initial state (should be 0)
                 rec_idx = -(num_x_stab + num_z_stab) + i
                 circuit.append("DETECTOR", [stim.target_rec(rec_idx)])
             else:
-                # Compare with previous round
                 curr_rec = -(num_x_stab + num_z_stab) + i
                 prev_rec = curr_rec - (num_x_stab + num_z_stab)
                 circuit.append("DETECTOR", [
@@ -137,7 +99,6 @@ def create_rotated_surface_code_circuit(
                     stim.target_rec(prev_rec)
                 ])
 
-        # Z stabilizer detectors
         for i in range(num_z_stab):
             if r == 0:
                 rec_idx = -num_z_stab + i
@@ -150,30 +111,81 @@ def create_rotated_surface_code_circuit(
                     stim.target_rec(prev_rec)
                 ])
 
-    # Final data qubit measurements
-    # Measure all data qubits in Z basis
+    # Final measurement in Z basis
     circuit.append("M", range(num_data))
-
     circuit.append("TICK")
 
-    # Add final detectors from data measurements
-    # These compare final measurement with last stabilizer round
-
-    # Observable 0: X logical operator (horizontal chain)
-    # Affected by Z errors
-    x_logical_qubits = get_x_logical_qubits(d)
-    obs_0_recs = [stim.target_rec(-num_data + q) for q in x_logical_qubits]
+    # Observable 0: Z logical (top to bottom, middle column)
+    # Flipped by X errors
+    z_logical_qubits = get_z_logical_qubits(d)
+    obs_0_recs = [stim.target_rec(-num_data + q) for q in z_logical_qubits]
     circuit.append("OBSERVABLE_INCLUDE", obs_0_recs, 0)
 
-    # Observable 1: Z logical operator (vertical chain)
-    # Affected by X errors - need to track via X stabilizer measurements
-    z_logical_qubits = get_z_logical_qubits(d)
-    # For Z logical, we track X measurement results along the logical operator
-    # This is more complex - simplified version:
-    obs_1_recs = [stim.target_rec(-num_data + q) for q in z_logical_qubits]
+    # Observable 1: X logical (left to right, middle row)
+    # Flipped by Z errors - track via X stabilizer measurements
+    x_logical_qubits = get_x_logical_qubits(d)
+    obs_1_recs = [stim.target_rec(-num_data + q) for q in x_logical_qubits]
     circuit.append("OBSERVABLE_INCLUDE", obs_1_recs, 1)
 
     return circuit
+
+
+def get_rotated_stabilizer_qubits(d: int):
+    """
+    Get stabilizer qubits for ROTATED surface code.
+
+    In rotated surface code:
+    - Data qubits on a d x d grid
+    - X stabilizers at positions where row+col is odd
+    - Z stabilizers at positions where row+col is even
+    - Each stabilizer connects to diagonal neighbors
+    """
+    x_stabilizers = []
+    z_stabilizers = []
+
+    def qubit_idx(row, col):
+        return row * d + col
+
+    # Iterate over plaquette centers
+    # For rotated surface code, plaquettes are at half-integer positions
+    # We use a 2d-1 x 2d-1 grid for both data and plaquettes
+
+    for row in range(d - 1):
+        for col in range(d - 1):
+            # Each plaquette touches 4 data qubits at corners
+            qubits = [
+                qubit_idx(row, col),         # top-left
+                qubit_idx(row, col + 1),     # top-right
+                qubit_idx(row + 1, col),     # bottom-left
+                qubit_idx(row + 1, col + 1)  # bottom-right
+            ]
+
+            # Alternate between X and Z stabilizers
+            if (row + col) % 2 == 0:
+                x_stabilizers.append(qubits)
+            else:
+                z_stabilizers.append(qubits)
+
+    # Boundary stabilizers (weight-2)
+    # Top and bottom boundaries
+    for col in range(d - 1):
+        if col % 2 == 0:
+            # Top boundary Z stabilizer
+            z_stabilizers.append([qubit_idx(0, col), qubit_idx(0, col + 1)])
+        if (d - 1 + col) % 2 == 0:
+            # Bottom boundary Z stabilizer
+            z_stabilizers.append([qubit_idx(d - 1, col), qubit_idx(d - 1, col + 1)])
+
+    # Left and right boundaries
+    for row in range(d - 1):
+        if row % 2 == 1:
+            # Left boundary X stabilizer
+            x_stabilizers.append([qubit_idx(row, 0), qubit_idx(row + 1, 0)])
+        if (row + d - 1) % 2 == 1:
+            # Right boundary X stabilizer
+            x_stabilizers.append([qubit_idx(row, d - 1), qubit_idx(row + 1, d - 1)])
+
+    return x_stabilizers, z_stabilizers
 
 
 def get_stabilizer_qubits(d: int):
