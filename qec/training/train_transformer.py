@@ -459,12 +459,23 @@ def test(model, device, test_loader_list, ps_range_test, cum_count_lim=10000):
             cum_samples_all.append(cum_count)
             test_loss_ber_list.append(test_ber / cum_count)
             test_loss_ler_list.append(1 - (test_ler / cum_count))
-            print(f'Test p={ps_range_test[ii]:.3e}, LER={test_loss_ler_list[-1]:.3e}')
 
-        logging.info('Test LER  ' + ' '.join(
-            ['p={:.2e}: {:.2e}'.format(ebno, elem) for (elem, ebno)
-             in
-             (zip(test_loss_ler_list, ps_range_test))]))
+            # Handle both numeric and string p values
+            p_val = ps_range_test[ii]
+            if isinstance(p_val, (int, float)):
+                print(f'Test p={p_val:.3e}, LER={test_loss_ler_list[-1]:.3e}')
+            else:
+                print(f'Test p={p_val}, LER={test_loss_ler_list[-1]:.3e}')
+
+        # Format output based on p value types
+        if all(isinstance(p, (int, float)) for p in ps_range_test):
+            logging.info('Test LER  ' + ' '.join(
+                ['p={:.2e}: {:.2e}'.format(ebno, elem) for (elem, ebno)
+                 in (zip(test_loss_ler_list, ps_range_test))]))
+        else:
+            logging.info('Test LER  ' + ' '.join(
+                ['p={}: {:.2e}'.format(ebno, elem) for (elem, ebno)
+                 in (zip(test_loss_ler_list, ps_range_test))]))
         logging.info(f'Mean LER = {np.mean(test_loss_ler_list):.3e}')
     logging.info(f'# of testing samples: {cum_samples_all}\n Test Time {time.time() - t} s\n')
     return test_loss_ber_list, test_loss_ler_list
