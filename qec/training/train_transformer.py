@@ -243,6 +243,132 @@ class QECC_Dataset(data.Dataset):
         return self.len
 
 
+class FixedQECC_Dataset(data.Dataset):
+    """논문용 고정 데이터셋 - 저장된 데이터 로드"""
+    def __init__(self, syndromes, labels):
+        self.syndromes = syndromes
+        self.labels = labels
+
+    def __getitem__(self, index):
+        return self.syndromes[index], self.labels[index]
+
+    def __len__(self):
+        return len(self.syndromes)
+
+
+def generate_and_save_dataset(code, x_error_basis, z_error_basis, p_errors,
+                               n_samples, y_ratio, save_path, seed=42):
+    """
+    논문용 고정 데이터셋 생성 및 저장
+
+    Args:
+        code: 코드 객체
+        x_error_basis: X 에러 LUT
+        z_error_basis: Z 에러 LUT
+        p_errors: 에러율 리스트
+        n_samples: 샘플 수
+        y_ratio: Y 에러 비율
+        save_path: 저장 경로
+        seed: 랜덤 시드
+    """
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    random.seed(seed)
+
+    device = next(iter(x_error_basis.values())).device if x_error_basis else torch.device("cpu")
+
+    H_z = code.H_z.to(device)
+    H_x = code.H_x.to(device)
+    L_z = code.L_z.to(device)
+    L_x = code.L_x.to(device)
+    n_phys = H_z.shape[1]
+
+    syndromes = []
+    labels = []
+
+    print(f"Generating {n_samples} samples with seed={seed}...")
+
+    for i in range(n_samples):
+        if (i + 1) % 10000 == 0:
+            print(f"  {i+1}/{n_samples}")
+
+        p = random.choice(p_errors)
+
+        # Generate noise
+        if y_ratio > 0:
+            e_x_np, e_z_np = generate_correlated_noise(n_phys, p, y_ratio)
+        else:
+            rand_vals = np.random.rand(n_phys)
+            e_z_np = (rand_vals < p/3)
+            e_x_np = (p/3 <= rand_vals) & (rand_vals < 2*p/3)
+            e_y_np = (2*p/3 <= rand_vals) & (rand_vals < p)
+            e_z_np, e_x_np = (e_z_np + e_y_np) % 2, (e_x_np + e_y_np) % 2
+
+        e_z = torch.from_numpy(e_z_np).to(device, dtype=torch.uint8)
+        e_x = torch.from_numpy(e_x_np).to(device, dtype=torch.uint8)
+        e_full = torch.cat([e_z, e_x])
+
+        # Skip if no error
+        if not torch.any(e_full):
+            continue
+
+        e_z_actual = e_full[:n_phys]
+        e_x_actual = e_full[n_phys:]
+
+        # Calculate syndrome
+        s_z_actual = (H_z.float() @ e_x_actual.float()) % 2
+        s_x_actual = (H_x.float() @ e_z_actual.float()) % 2
+        syndrome = torch.cat([s_z_actual, s_x_actual])
+
+        # Calculate label
+        pure_error_C = simple_decoder_C_torch(syndrome.type(torch.uint8),
+                                              x_error_basis, z_error_basis, H_z, H_x)
+        l_physical = pure_error_C.long() ^ e_full.long()
+
+        l_z_physical = l_physical[:n_phys]
+        l_x_physical = l_physical[n_phys:]
+
+        l_x_flip = (L_z.float() @ l_x_physical.float()) % 2
+        l_z_flip = (L_x.float() @ l_z_physical.float()) % 2
+
+        true_class_index = (l_z_flip * 2 + l_x_flip).long()
+
+        syndromes.append(syndrome.float().cpu())
+        labels.append(true_class_index.cpu())
+
+    syndromes = torch.stack(syndromes)
+    labels = torch.stack(labels)
+
+    # Save dataset
+    os.makedirs(os.path.dirname(save_path) if os.path.dirname(save_path) else '.', exist_ok=True)
+    torch.save({
+        'syndromes': syndromes,
+        'labels': labels,
+        'p_errors': p_errors,
+        'y_ratio': y_ratio,
+        'seed': seed,
+        'n_samples': len(syndromes)
+    }, save_path)
+
+    print(f"Dataset saved to {save_path}")
+    print(f"  Samples: {len(syndromes)}")
+    print(f"  Syndrome shape: {syndromes.shape}")
+    print(f"  Class distribution: {torch.bincount(labels.squeeze(), minlength=4).tolist()}")
+
+    return syndromes, labels
+
+
+def load_dataset(load_path):
+    """저장된 데이터셋 로드"""
+    data = torch.load(load_path)
+    print(f"Dataset loaded from {load_path}")
+    print(f"  Samples: {data['n_samples']}")
+    print(f"  p_errors: {data['p_errors']}")
+    print(f"  y_ratio: {data['y_ratio']}")
+    print(f"  seed: {data['seed']}")
+    return data['syndromes'], data['labels'], data
+
+
 class Binarization(torch.autograd.Function):
     @staticmethod
     def forward(ctx, input):
@@ -383,6 +509,29 @@ def main(args):
 
     assert 0 < args.repetitions
 
+    # Dataset generation mode (for reproducible experiments)
+    if args.generate_dataset:
+        dataset_dir = os.path.join(args.dataset_dir, f"L{args.code_L}_y{args.y_ratio}")
+        os.makedirs(dataset_dir, exist_ok=True)
+
+        # Generate training dataset
+        train_path = os.path.join(dataset_dir, f"train_{args.n_train_samples}_seed{args.seed}.pt")
+        generate_and_save_dataset(
+            code, x_error_basis_dict, z_error_basis_dict, args.p_errors,
+            args.n_train_samples, args.y_ratio, train_path, seed=args.seed
+        )
+
+        # Generate test dataset (separate seed)
+        test_path = os.path.join(dataset_dir, f"test_{args.n_test_samples}_seed{args.test_seed}.pt")
+        generate_and_save_dataset(
+            code, x_error_basis_dict, z_error_basis_dict, args.p_errors,
+            args.n_test_samples, args.y_ratio, test_path, seed=args.test_seed
+        )
+
+        logging.info(f"\nDatasets generated in {dataset_dir}")
+        logging.info("Run training with --use_fixed_dataset flag")
+        return
+
     from qec.models.transformer import ECC_Transformer
 
     model = ECC_Transformer(args, dropout=0).to(device)
@@ -410,12 +559,62 @@ def main(args):
     # OPTIMIZED: Add prefetch_factor for better pipeline (1.2-1.5x faster)
     prefetch = 2 if args.workers > 0 else None
 
-    # Fixed dataset size (100k samples per epoch, independent of batch size)
-    train_dataloader = DataLoader(QECC_Dataset(code, x_error_basis_dict, z_error_basis_dict, ps_train, len=100000, args=args), batch_size=int(args.batch_size),
-                                  shuffle=True, num_workers=args.workers, persistent_workers=True, pin_memory=use_pin_memory, prefetch_factor=prefetch)
+    # Create DataLoaders
+    if args.use_fixed_dataset:
+        # Load pre-generated fixed datasets (for reproducible experiments)
+        dataset_dir = os.path.join(args.dataset_dir, f"L{args.code_L}_y{args.y_ratio}")
+        train_path = os.path.join(dataset_dir, f"train_{args.n_train_samples}_seed{args.seed}.pt")
+        test_path = os.path.join(dataset_dir, f"test_{args.n_test_samples}_seed{args.test_seed}.pt")
 
-    test_dataloader_list = [DataLoader(QECC_Dataset(code, x_error_basis_dict, z_error_basis_dict, [ps_test[ii]], len=int(args.test_batch_size),args=args),
-                                       batch_size=int(args.test_batch_size), shuffle=False, num_workers=args.workers, persistent_workers=True, pin_memory=use_pin_memory, prefetch_factor=prefetch) for ii in range(len(ps_test))]
+        if not os.path.exists(train_path) or not os.path.exists(test_path):
+            logging.error(f"Dataset not found. Run with --generate_dataset first.")
+            logging.error(f"  Expected: {train_path}")
+            logging.error(f"  Expected: {test_path}")
+            return
+
+        train_syndromes, train_labels, _ = load_dataset(train_path)
+        test_syndromes, test_labels, _ = load_dataset(test_path)
+
+        train_dataloader = DataLoader(
+            FixedQECC_Dataset(train_syndromes, train_labels),
+            batch_size=int(args.batch_size),
+            shuffle=True, num_workers=args.workers,
+            persistent_workers=True if args.workers > 0 else False,
+            pin_memory=use_pin_memory,
+            prefetch_factor=prefetch if args.workers > 0 else None
+        )
+
+        # Single test dataloader for fixed dataset
+        test_dataloader_list = [DataLoader(
+            FixedQECC_Dataset(test_syndromes, test_labels),
+            batch_size=int(args.test_batch_size),
+            shuffle=False, num_workers=args.workers,
+            persistent_workers=True if args.workers > 0 else False,
+            pin_memory=use_pin_memory,
+            prefetch_factor=prefetch if args.workers > 0 else None
+        )]
+        ps_test = ['all']  # Indicate combined test set
+
+        logging.info(f"Using fixed dataset from {dataset_dir}")
+    else:
+        # Dynamic dataset generation (original behavior)
+        train_dataloader = DataLoader(
+            QECC_Dataset(code, x_error_basis_dict, z_error_basis_dict, ps_train,
+                        len=args.samples_per_epoch, args=args),
+            batch_size=int(args.batch_size),
+            shuffle=True, num_workers=args.workers,
+            persistent_workers=True, pin_memory=use_pin_memory, prefetch_factor=prefetch
+        )
+
+        test_dataloader_list = [
+            DataLoader(
+                QECC_Dataset(code, x_error_basis_dict, z_error_basis_dict, [ps_test[ii]],
+                            len=int(args.test_batch_size), args=args),
+                batch_size=int(args.test_batch_size),
+                shuffle=False, num_workers=args.workers,
+                persistent_workers=True, pin_memory=use_pin_memory, prefetch_factor=prefetch
+            ) for ii in range(len(ps_test))
+        ]
 
     best_loss = float('inf')
     patience_counter = 0
@@ -453,12 +652,32 @@ def main(args):
     model = torch.load(os.path.join(args.path, 'best_model'), weights_only=False).to(device)
 
     logging.info('Best model loaded')
-    ps_test = args.p_errors
 
-    test_dataloader_list = [DataLoader(QECC_Dataset(code, x_error_basis_dict, z_error_basis_dict, [ps_test[ii]], len=int(args.test_batch_size),args=args),
-                                       batch_size=int(args.test_batch_size), shuffle=False, num_workers=args.workers, persistent_workers=True, pin_memory=use_pin_memory, prefetch_factor=prefetch) for ii in range(len(ps_test))]
+    # Final evaluation
+    if args.use_fixed_dataset:
+        # Use the same fixed test dataset
+        final_test_list = test_dataloader_list
+        final_ps_test = ps_test
+    else:
+        # Generate new test data
+        final_ps_test = args.p_errors
+        final_test_list = [
+            DataLoader(
+                QECC_Dataset(code, x_error_basis_dict, z_error_basis_dict, [final_ps_test[ii]],
+                            len=int(args.test_batch_size), args=args),
+                batch_size=int(args.test_batch_size),
+                shuffle=False, num_workers=args.workers,
+                persistent_workers=True, pin_memory=use_pin_memory, prefetch_factor=prefetch
+            ) for ii in range(len(final_ps_test))
+        ]
 
-    test(model, device, test_dataloader_list, ps_test)
+    final_ler = test(model, device, final_test_list, final_ps_test)
+
+    return {
+        'best_loss': best_loss,
+        'final_ler': final_ler,
+        'model_path': args.path
+    }
 
 
 if __name__ == '__main__':
@@ -469,6 +688,8 @@ if __name__ == '__main__':
     parser.add_argument('--gpus', type=str, default='0', help='gpus ids')
     parser.add_argument('--batch_size', type=int, default=128)
     parser.add_argument('--test_batch_size', type=int, default=512)
+    parser.add_argument('--samples_per_epoch', type=int, default=100000,
+                        help='Number of samples per training epoch')
     parser.add_argument('--seed', type=int, default=42)
     parser.add_argument('--device', type=str, default='auto',
                         choices=['auto', 'cpu', 'cuda', 'xpu'],
@@ -479,6 +700,22 @@ if __name__ == '__main__':
                         help='Early stopping patience (epochs). 0 = disabled (default)')
     parser.add_argument('--min_delta', type=float, default=0.0,
                         help='Minimum change in loss to qualify as improvement')
+
+    # Dataset args (for reproducible experiments)
+    parser.add_argument('--generate_dataset', action='store_true',
+                        help='Generate and save dataset only (no training)')
+    parser.add_argument('--use_fixed_dataset', action='store_true',
+                        help='Use pre-generated fixed dataset for training')
+    parser.add_argument('--dataset_dir', type=str, default='datasets',
+                        help='Directory for saving/loading datasets')
+    parser.add_argument('--n_train_samples', type=int, default=1000000,
+                        help='Number of training samples for fixed dataset')
+    parser.add_argument('--n_test_samples', type=int, default=100000,
+                        help='Number of test samples for fixed dataset')
+    parser.add_argument('--n_runs', type=int, default=1,
+                        help='Number of experiment runs for statistical significance')
+    parser.add_argument('--test_seed', type=int, default=12345,
+                        help='Separate seed for test dataset')
 
     # Code args
     parser.add_argument('--code_type', type=str, default='surface',choices=['surface'])
@@ -557,4 +794,43 @@ if __name__ == '__main__':
     logging.info(f"Path to model/logs: {model_dir}")
     logging.info(args)
 
-    main(args)
+    # Run experiments
+    if args.n_runs > 1:
+        # Multiple runs for statistical significance
+        all_results = []
+        all_lers = []
+
+        for run_idx in range(args.n_runs):
+            run_seed = args.seed + run_idx * 1000
+            set_seed(run_seed)
+
+            logging.info(f"\n{'='*60}")
+            logging.info(f"RUN {run_idx + 1}/{args.n_runs} (seed={run_seed})")
+            logging.info(f"{'='*60}")
+
+            # Update model directory for this run
+            run_model_dir = os.path.join(model_dir, f"run_{run_idx + 1}")
+            os.makedirs(run_model_dir, exist_ok=True)
+            args.path = run_model_dir
+
+            result = main(args)
+            if result:
+                all_results.append(result)
+                if result.get('final_ler'):
+                    all_lers.append(np.mean(result['final_ler'][1]))  # Mean LER
+
+        # Print statistical summary
+        if all_lers:
+            logging.info(f"\n{'='*60}")
+            logging.info("STATISTICAL SUMMARY")
+            logging.info(f"{'='*60}")
+            logging.info(f"Number of runs: {len(all_lers)}")
+            logging.info(f"Mean LER: {np.mean(all_lers):.6e}")
+            logging.info(f"Std LER:  {np.std(all_lers):.6e}")
+            logging.info(f"Min LER:  {np.min(all_lers):.6e}")
+            logging.info(f"Max LER:  {np.max(all_lers):.6e}")
+            logging.info(f"\nResult: {np.mean(all_lers):.6e} ± {np.std(all_lers):.6e}")
+            logging.info(f"{'='*60}")
+    else:
+        # Single run
+        main(args)
