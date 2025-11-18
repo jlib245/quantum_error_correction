@@ -570,6 +570,17 @@ def main(args):
     # OPTIMIZED: Add prefetch_factor for better pipeline (1.2-1.5x faster)
     prefetch = 2 if args.workers > 0 else None
 
+    # Worker init function for reproducibility
+    def worker_init_fn(worker_id):
+        worker_seed = args.seed + worker_id
+        np.random.seed(worker_seed)
+        random.seed(worker_seed)
+        torch.manual_seed(worker_seed)
+
+    # Generator for reproducible shuffling
+    g = torch.Generator()
+    g.manual_seed(args.seed)
+
     # Create DataLoaders
     if args.use_fixed_dataset:
         # Load pre-generated fixed datasets (for reproducible experiments)
@@ -592,7 +603,9 @@ def main(args):
             shuffle=True, num_workers=args.workers,
             persistent_workers=True if args.workers > 0 else False,
             pin_memory=use_pin_memory,
-            prefetch_factor=prefetch if args.workers > 0 else None
+            prefetch_factor=prefetch if args.workers > 0 else None,
+            worker_init_fn=worker_init_fn if args.workers > 0 else None,
+            generator=g
         )
 
         # Single test dataloader for fixed dataset
@@ -602,7 +615,8 @@ def main(args):
             shuffle=False, num_workers=args.workers,
             persistent_workers=True if args.workers > 0 else False,
             pin_memory=use_pin_memory,
-            prefetch_factor=prefetch if args.workers > 0 else None
+            prefetch_factor=prefetch if args.workers > 0 else None,
+            worker_init_fn=worker_init_fn if args.workers > 0 else None
         )]
         ps_test = ['all']  # Indicate combined test set
 
@@ -616,7 +630,9 @@ def main(args):
             shuffle=True, num_workers=args.workers,
             persistent_workers=True if args.workers > 0 else False,
             pin_memory=use_pin_memory,
-            prefetch_factor=prefetch if args.workers > 0 else None
+            prefetch_factor=prefetch if args.workers > 0 else None,
+            worker_init_fn=worker_init_fn if args.workers > 0 else None,
+            generator=g
         )
 
         test_dataloader_list = [
@@ -627,7 +643,8 @@ def main(args):
                 shuffle=False, num_workers=args.workers,
                 persistent_workers=True if args.workers > 0 else False,
                 pin_memory=use_pin_memory,
-                prefetch_factor=prefetch if args.workers > 0 else None
+                prefetch_factor=prefetch if args.workers > 0 else None,
+                worker_init_fn=worker_init_fn if args.workers > 0 else None
             ) for ii in range(len(ps_test))
         ]
 
