@@ -614,7 +614,9 @@ def main(args):
                         len=args.samples_per_epoch, args=args),
             batch_size=int(args.batch_size),
             shuffle=True, num_workers=args.workers,
-            persistent_workers=True, pin_memory=use_pin_memory, prefetch_factor=prefetch
+            persistent_workers=True if args.workers > 0 else False,
+            pin_memory=use_pin_memory,
+            prefetch_factor=prefetch if args.workers > 0 else None
         )
 
         test_dataloader_list = [
@@ -623,7 +625,9 @@ def main(args):
                             len=int(args.test_batch_size), args=args),
                 batch_size=int(args.test_batch_size),
                 shuffle=False, num_workers=args.workers,
-                persistent_workers=True, pin_memory=use_pin_memory, prefetch_factor=prefetch
+                persistent_workers=True if args.workers > 0 else False,
+                pin_memory=use_pin_memory,
+                prefetch_factor=prefetch if args.workers > 0 else None
             ) for ii in range(len(ps_test))
         ]
 
