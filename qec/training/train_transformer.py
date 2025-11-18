@@ -401,8 +401,8 @@ def main(args):
     logging.info(model)
     logging.info(f'# of Parameters: {np.sum([np.prod(p.shape) for p in model.parameters()])}')
 
-    ps_train = [0.07, 0.08, 0.09, 0.1, 0.11]  # Train on all error rates
-    ps_test = [0.07, 0.08, 0.09, 0.1, 0.11]
+    ps_train = args.p_errors  # Train on all error rates
+    ps_test = args.p_errors
 
     # pin_memory=True for faster CPU->GPU data transfer (CUDA and XPU)
     use_pin_memory = device.type in ['cuda', 'xpu']
@@ -453,7 +453,7 @@ def main(args):
     model = torch.load(os.path.join(args.path, 'best_model'), weights_only=False).to(device)
 
     logging.info('Best model loaded')
-    ps_test = [0.07, 0.08, 0.09, 0.1, 0.11]
+    ps_test = args.p_errors
 
     test_dataloader_list = [DataLoader(QECC_Dataset(code, x_error_basis_dict, z_error_basis_dict, [ps_test[ii]], len=int(args.test_batch_size),args=args),
                                        batch_size=int(args.test_batch_size), shuffle=False, num_workers=args.workers, persistent_workers=True, pin_memory=use_pin_memory, prefetch_factor=prefetch) for ii in range(len(ps_test))]
@@ -485,6 +485,9 @@ if __name__ == '__main__':
     parser.add_argument('-L', '--code_L', type=int, default=3,help='Lattice length')
     parser.add_argument('--repetitions', type=int, default=1,help='Number of faulty repetitions. <=1 is equivalent to none.')
     parser.add_argument('--noise_type', type=str,default='independent', choices=['independent','depolarization'],help='Noise model')
+    parser.add_argument('-p', '--p_errors', type=float, nargs='+',
+                        default=[0.01, 0.02, 0.03, 0.04, 0.05, 0.06, 0.07, 0.08, 0.09, 0.10, 0.11],
+                        help='Physical error rates for training/testing')
     parser.add_argument('-y', '--y_ratio', type=float, default=0.0,
                         help="Ratio of Y errors for correlated noise (default: 0.0 = independent noise)")
 

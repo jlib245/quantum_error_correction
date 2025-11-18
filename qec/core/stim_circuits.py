@@ -115,16 +115,25 @@ def create_rotated_surface_code_circuit(
     circuit.append("M", range(num_data))
     circuit.append("TICK")
 
-    # Observable 0: Z logical (top to bottom, middle column)
-    # Flipped by X errors
+    # Observable 0: Z logical (vertical chain, middle column)
+    # Parity of Z measurements along the chain
     z_logical_qubits = get_z_logical_qubits(d)
     obs_0_recs = [stim.target_rec(-num_data + q) for q in z_logical_qubits]
     circuit.append("OBSERVABLE_INCLUDE", obs_0_recs, 0)
 
-    # Observable 1: X logical (left to right, middle row)
-    # Flipped by Z errors - track via X stabilizer measurements
-    x_logical_qubits = get_x_logical_qubits(d)
-    obs_1_recs = [stim.target_rec(-num_data + q) for q in x_logical_qubits]
+    # Observable 1: X logical (horizontal chain)
+    # Track via Z stabilizer measurements along top boundary
+    # Z error chain going left-to-right flips top boundary Z stabilizers
+    z_logical_stab_indices = []
+    for i, stab_qubits in enumerate(z_stabilizers):
+        # Check if this stabilizer touches top boundary (row 0)
+        if any(q < d for q in stab_qubits):  # top row
+            z_logical_stab_indices.append(i)
+
+    # Reference the last round's Z stabilizer measurements
+    # Z stabilizers come after X stabilizers in measurement record
+    last_round_offset = -num_z_stab - num_data
+    obs_1_recs = [stim.target_rec(last_round_offset + i) for i in z_logical_stab_indices]
     circuit.append("OBSERVABLE_INCLUDE", obs_1_recs, 1)
 
     return circuit
