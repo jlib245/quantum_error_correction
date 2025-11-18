@@ -653,6 +653,12 @@ def main(args):
     patience_counter = 0
 
     for epoch in range(1, args.epochs + 1):
+        # 데이터 생성 seed 리셋 (매 epoch 같은 데이터)
+        set_seed(args.seed)
+
+        # Shuffle seed는 epoch마다 다르게
+        g.manual_seed(args.seed + epoch)
+
         loss, ber, ler = train(model, device, train_dataloader, optimizer,
                                epoch, LR=scheduler.get_last_lr()[0])
         scheduler.step()
