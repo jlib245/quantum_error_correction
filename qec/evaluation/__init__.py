@@ -6,9 +6,7 @@ Provides tools for evaluating quantum error correction decoders:
 - compare_decoders_stim: Realistic evaluation using Stim-generated syndromes
 """
 
-from .compare_decoders import evaluate_decoder, compare_all_decoders
+# Functions are accessed via module import
+# Example: from qec.evaluation.compare_decoders import evaluate_mwpm
 
-__all__ = [
-    'evaluate_decoder',
-    'compare_all_decoders',
-]
+__all__ = []

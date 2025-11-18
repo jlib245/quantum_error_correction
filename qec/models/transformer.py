@@ -104,14 +104,27 @@ class MultiHeadedAttention(nn.Module):
         return self.linears[-1](x)
 
     def attention(self, query, key, value, mask=None):
-        d_k = query.size(-1)
-        scores = torch.matmul(query, key.transpose(-2, -1)) / math.sqrt(d_k)
-        if mask is not None:
-            scores = scores.masked_fill(mask, -1e9)
-        p_attn = F.softmax(scores, dim=-1)
-        if self.dropout is not None:
-            p_attn = self.dropout(p_attn)
-        return torch.matmul(p_attn, value), p_attn
+        # Use Flash Attention via scaled_dot_product_attention (PyTorch 2.0+)
+        if hasattr(F, 'scaled_dot_product_attention') and mask is None:
+            # Flash Attention: much faster and memory efficient
+            dropout_p = self.dropout.p if self.training else 0.0
+            out = F.scaled_dot_product_attention(
+                query, key, value,
+                attn_mask=None,
+                dropout_p=dropout_p,
+                is_causal=False
+            )
+            return out, None
+        else:
+            # Fallback to standard attention
+            d_k = query.size(-1)
+            scores = torch.matmul(query, key.transpose(-2, -1)) / math.sqrt(d_k)
+            if mask is not None:
+                scores = scores.masked_fill(mask, -1e9)
+            p_attn = F.softmax(scores, dim=-1)
+            if self.dropout is not None:
+                p_attn = self.dropout(p_attn)
+            return torch.matmul(p_attn, value), p_attn
 
 
 class PositionwiseFeedForward(nn.Module):
@@ -176,16 +189,20 @@ class ECC_Transformer(nn.Module):
         # Encoder layers
         self.encoder = Encoder(EncoderLayer(d_model, c(attn), c(ff), dropout), N_dec)
 
-        # Input embedding: syndrome vector to d_model dimensions
-        self.input_embedding = nn.Linear(code.pc_matrix.size(0), d_model)
+        # Input embedding: each syndrome bit to d_model dimensions
+        self.syndrome_len = code.pc_matrix.size(0)
+        self.input_embedding = nn.Linear(1, d_model)
 
-        # Output classifier: transformer output to 4 classes (I, X, Z, Y)
+        # CLS token for classification
+        self.cls_token = nn.Parameter(torch.randn(1, 1, d_model) * 0.02)
+
+        # Output classifier: CLS token output to 4 classes (I, X, Z, Y)
         self.output_classifier = nn.Linear(d_model, 4)
 
         self.criterion = nn.CrossEntropyLoss()
 
-        # Initialize mask
-        self.get_mask(code, no_mask=(args.no_mask > 0))
+        # Initialize mask (None for now, can add structure-aware mask later)
+        self.src_mask = None
 
     def forward(self, x):
         """
@@ -197,11 +214,15 @@ class ECC_Transformer(nn.Module):
         Returns:
             logits: Output tensor of shape (batch_size, 4)
         """
-        # 1. Input embedding (Batch, Syndrome_Length) -> (Batch, d_model)
-        x_emb = self.input_embedding(x)
+        batch_size = x.size(0)
 
-        # 2. Reshape to sequence format: (Batch, Sequence_Length, d_model)
-        x_seq = x_emb.unsqueeze(1)
+        # 1. Input embedding: each syndrome bit as a token
+        # (Batch, Syndrome_Length) -> (Batch, Syndrome_Length, 1) -> (Batch, Syndrome_Length, d_model)
+        x_emb = self.input_embedding(x.unsqueeze(-1))
+
+        # 2. Prepend CLS token
+        cls_tokens = self.cls_token.expand(batch_size, -1, -1)
+        x_seq = torch.cat([cls_tokens, x_emb], dim=1)  # (Batch, 1 + Syndrome_Length, d_model)
 
         # 3. Add positional encoding
         x_pos = self.pos_encoder(x_seq)
@@ -209,9 +230,9 @@ class ECC_Transformer(nn.Module):
         # 4. Pass through transformer encoder
         encoded_x = self.encoder(x_pos, self.src_mask)
 
-        # 5. Classification
-        seq_output = encoded_x.squeeze(1)
-        logits = self.output_classifier(seq_output)
+        # 5. Classification from CLS token
+        cls_output = encoded_x[:, 0]  # (Batch, d_model)
+        logits = self.output_classifier(cls_output)
 
         return logits
 
@@ -219,17 +240,3 @@ class ECC_Transformer(nn.Module):
         """Calculate loss."""
         return self.criterion(pred, true_label)
 
-    def get_mask(self, code, no_mask=False):
-        """Initialize attention mask."""
-        if no_mask:
-            self.src_mask = None
-            return
-
-        def build_mask(code):
-            syndrome_len = code.pc_matrix.size(0)
-            mask = torch.zeros(1, 1, 1, dtype=torch.bool)
-            src_mask = mask
-            return src_mask
-
-        src_mask = build_mask(code)
-        self.register_buffer('src_mask', src_mask)
