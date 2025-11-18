@@ -572,7 +572,8 @@ def main(args):
 
     # Worker init function for reproducibility
     def worker_init_fn(worker_id):
-        worker_seed = args.seed + worker_id
+        # 충분한 간격으로 seed 분리 (worker_id * 1000)
+        worker_seed = args.seed + worker_id * 1000
         np.random.seed(worker_seed)
         random.seed(worker_seed)
         torch.manual_seed(worker_seed)
