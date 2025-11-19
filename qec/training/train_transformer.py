@@ -657,7 +657,23 @@ def main(args):
     best_loss = float('inf')
     patience_counter = 0
 
-    for epoch in range(1, args.epochs + 1):
+    # Resume from model
+    if args.resume:
+        if os.path.exists(args.resume):
+            logging.info(f"Resuming from model: {args.resume}")
+            loaded_model = torch.load(args.resume, map_location=device, weights_only=False)
+
+            if isinstance(model, torch.nn.DataParallel):
+                model.module.load_state_dict(loaded_model.state_dict())
+            else:
+                model.load_state_dict(loaded_model.state_dict())
+
+            logging.info(f"Model loaded, starting from epoch {args.start_epoch}")
+        else:
+            logging.error(f"Model not found: {args.resume}")
+            return
+
+    for epoch in range(args.start_epoch, args.epochs + 1):
         # Shuffle seed는 epoch마다 다르게 (데이터는 index 기반으로 고정)
         g.manual_seed(args.seed + epoch)
 
@@ -743,6 +759,10 @@ if __name__ == '__main__':
                         help='Early stopping patience (epochs). 0 = disabled (default)')
     parser.add_argument('--min_delta', type=float, default=0.0,
                         help='Minimum change in loss to qualify as improvement')
+    parser.add_argument('--resume', type=str, default=None,
+                        help='Path to model to resume training from')
+    parser.add_argument('--start_epoch', type=int, default=1,
+                        help='Starting epoch (use with --resume)')
 
     # Dataset args (for reproducible experiments)
     parser.add_argument('--generate_dataset', action='store_true',
