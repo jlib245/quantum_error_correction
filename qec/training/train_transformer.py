@@ -729,7 +729,7 @@ if __name__ == '__main__':
     parser.add_argument('--gpus', type=str, default='0', help='gpus ids')
     parser.add_argument('--batch_size', type=int, default=128)
     parser.add_argument('--test_batch_size', type=int, default=512)
-    parser.add_argument('--test_samples', type=int, default=100000,
+    parser.add_argument('--test_samples', type=int, default=10000,
                         help='Number of test samples for evaluation')
     parser.add_argument('--samples_per_epoch', type=int, default=100000,
                         help='Number of samples per training epoch')

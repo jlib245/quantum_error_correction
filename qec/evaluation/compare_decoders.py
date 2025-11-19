@@ -335,6 +335,12 @@ def plot_comparison_graphs(results_dict, save_dir, L, y_ratio):
 
 
 def main(args):
+    # Fix random seeds for reproducibility (use different seed from training)
+    np.random.seed(1)
+    torch.manual_seed(1)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(1)
+
     # Setup experiment directory
     exp_dir = get_experiment_dir(args.L, args.y_ratio)
     log_file = setup_logging(exp_dir)
