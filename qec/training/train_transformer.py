@@ -668,7 +668,11 @@ def main(args):
             else:
                 model.load_state_dict(loaded_model.state_dict())
 
-            logging.info(f"Model loaded, starting from epoch {args.start_epoch}")
+            # Scheduler를 start_epoch에 맞게 조정
+            for _ in range(args.start_epoch - 1):
+                scheduler.step()
+
+            logging.info(f"Model loaded, starting from epoch {args.start_epoch}, LR={scheduler.get_last_lr()[0]:.2e}")
         else:
             logging.error(f"Model not found: {args.resume}")
             return
