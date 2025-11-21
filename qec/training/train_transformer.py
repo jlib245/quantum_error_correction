@@ -175,10 +175,11 @@ def simple_decoder_C_torch(syndrome_vector, x_error_basis, z_error_basis, H_z, H
 
 
 class QECC_Dataset(data.Dataset):
-    def __init__(self, code, x_error_basis, z_error_basis, ps, len, args):
+    def __init__(self, code, x_error_basis, z_error_basis, ps, len, args, seed_offset=0):
         self.ps = ps
         self.len = len
         self.args = args
+        self.seed_offset = seed_offset  # Train: 0, Test: large number
 
         self.device = next(iter(x_error_basis.values())).device if x_error_basis else torch.device("cpu")
 
@@ -208,7 +209,8 @@ class QECC_Dataset(data.Dataset):
 
     def __getitem__(self, index):
         # index 기반 seed로 매 epoch 같은 데이터 보장
-        local_seed = self.args.seed + index
+        # seed_offset으로 train/test 분리 (test는 큰 offset 사용)
+        local_seed = self.args.seed + index + self.seed_offset
         np.random.seed(local_seed)
         random.seed(local_seed)
 
@@ -583,14 +585,6 @@ def main(args):
     # OPTIMIZED: Add prefetch_factor for better pipeline (1.2-1.5x faster)
     prefetch = 2 if args.workers > 0 else None
 
-    # Worker init function for reproducibility
-    def worker_init_fn(worker_id):
-        # 충분한 간격으로 seed 분리 (worker_id * 1000)
-        worker_seed = args.seed + worker_id * 1000
-        np.random.seed(worker_seed)
-        random.seed(worker_seed)
-        torch.manual_seed(worker_seed)
-
     # Generator for reproducible shuffling
     g = torch.Generator()
     g.manual_seed(args.seed)
@@ -618,7 +612,7 @@ def main(args):
             persistent_workers=True if args.workers > 0 else False,
             pin_memory=use_pin_memory,
             prefetch_factor=prefetch if args.workers > 0 else None,
-            worker_init_fn=worker_init_fn if args.workers > 0 else None,
+            
             generator=g
         )
 
@@ -630,7 +624,7 @@ def main(args):
             persistent_workers=True if args.workers > 0 else False,
             pin_memory=use_pin_memory,
             prefetch_factor=prefetch if args.workers > 0 else None,
-            worker_init_fn=worker_init_fn if args.workers > 0 else None
+            
         )]
         ps_test = ['all']  # Indicate combined test set
 
@@ -645,20 +639,20 @@ def main(args):
             persistent_workers=True if args.workers > 0 else False,
             pin_memory=use_pin_memory,
             prefetch_factor=prefetch if args.workers > 0 else None,
-            worker_init_fn=worker_init_fn if args.workers > 0 else None,
+            
             generator=g
         )
 
         test_dataloader_list = [
             DataLoader(
                 QECC_Dataset(code, x_error_basis_dict, z_error_basis_dict, [ps_test[ii]],
-                            len=int(args.test_batch_size), args=args),
+                            len=int(args.test_batch_size), args=args, seed_offset=10_000_000),
                 batch_size=int(args.test_batch_size),
                 shuffle=False, num_workers=args.workers,
                 persistent_workers=True if args.workers > 0 else False,
                 pin_memory=use_pin_memory,
                 prefetch_factor=prefetch if args.workers > 0 else None,
-                worker_init_fn=worker_init_fn if args.workers > 0 else None
+                
             ) for ii in range(len(ps_test))
         ]
 
@@ -731,7 +725,7 @@ def main(args):
         final_test_list = [
             DataLoader(
                 QECC_Dataset(code, x_error_basis_dict, z_error_basis_dict, [final_ps_test[ii]],
-                            len=int(args.test_batch_size), args=args),
+                            len=int(args.test_batch_size), args=args, seed_offset=10_000_000),
                 batch_size=int(args.test_batch_size),
                 shuffle=False, num_workers=args.workers,
                 persistent_workers=True, pin_memory=use_pin_memory, prefetch_factor=prefetch
@@ -796,7 +790,7 @@ if __name__ == '__main__':
     parser.add_argument('--repetitions', type=int, default=1,help='Number of faulty repetitions. <=1 is equivalent to none.')
     parser.add_argument('--noise_type', type=str,default='independent', choices=['independent','depolarization'],help='Noise model')
     parser.add_argument('-p', '--p_errors', type=float, nargs='+',
-                        default=[0.01, 0.02, 0.03, 0.04, 0.05, 0.06, 0.07, 0.08, 0.09, 0.10, 0.11],
+                        default=[0.07, 0.08, 0.09, 0.10, 0.11, 0.12, 0.13],
                         help='Physical error rates for training/testing')
     parser.add_argument('-y', '--y_ratio', type=float, default=0.0,
                         help="Ratio of Y errors for correlated noise (default: 0.0 = independent noise)")

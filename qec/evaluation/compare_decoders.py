@@ -335,11 +335,13 @@ def plot_comparison_graphs(results_dict, save_dir, L, y_ratio):
 
 
 def main(args):
-    # Fix random seeds for reproducibility (use different seed from training)
-    np.random.seed(1)
-    torch.manual_seed(1)
+    # Fix random seeds for reproducibility
+    # Use large offset to ensure no overlap with training (seed 42~) or test (seed 10M~)
+    EVAL_SEED = 20_000_000
+    np.random.seed(EVAL_SEED)
+    torch.manual_seed(EVAL_SEED)
     if torch.cuda.is_available():
-        torch.cuda.manual_seed_all(1)
+        torch.cuda.manual_seed_all(EVAL_SEED)
 
     # Setup experiment directory
     exp_dir = get_experiment_dir(args.L, args.y_ratio)
