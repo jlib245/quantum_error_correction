@@ -92,6 +92,56 @@ def Get_toric_Code(L):
     return Hx, Hz, Lx, Lz
 
 
+def compute_stabilizer_coordinates(H, L):
+    """
+    Compute 2D coordinates for stabilizers based on H matrix structure.
+
+    For surface code, stabilizers are arranged in a 2D grid pattern.
+    This function infers coordinates from the H matrix connectivity pattern.
+
+    Args:
+        H: Parity check matrix (n_stabilizers, n_qubits)
+        L: Code distance (used to determine grid size)
+
+    Returns:
+        coords: numpy array of shape (n_stabilizers, 2) with (x, y) coordinates
+    """
+    n_stabilizers = H.shape[0]
+    n_qubits = H.shape[1]
+
+    # First, assign coordinates to data qubits (assume grid layout)
+    # For surface code: n_qubits = L * L
+    qubit_coords = np.zeros((n_qubits, 2))
+    for i in range(n_qubits):
+        qubit_coords[i] = [i % L, i // L]
+
+    # Stabilizer coordinate = centroid of connected qubits
+    stabilizer_coords = np.zeros((n_stabilizers, 2))
+    for i in range(n_stabilizers):
+        connected_qubits = np.where(H[i] == 1)[0]
+        if len(connected_qubits) > 0:
+            stabilizer_coords[i] = qubit_coords[connected_qubits].mean(axis=0)
+
+    return stabilizer_coords
+
+
+def compute_qubit_coordinates(L):
+    """
+    Compute 2D coordinates for data qubits.
+
+    Args:
+        L: Code distance
+
+    Returns:
+        coords: numpy array of shape (L*L, 2) with (x, y) coordinates
+    """
+    n_qubits = L * L
+    coords = np.zeros((n_qubits, 2))
+    for i in range(n_qubits):
+        coords[i] = [i % L, i // L]
+    return coords
+
+
 # Deprecated: Legacy function for backward compatibility
 def Get_toric_Code_legacy(L):
     """

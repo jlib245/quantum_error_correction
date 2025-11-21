@@ -1,7 +1,6 @@
 """
 Transformer Training Script for Quantum Error Correction
 """
-from __future__ import print_function
 import argparse
 import random
 import os
@@ -9,17 +8,12 @@ from torch.utils.data import DataLoader
 from torch.utils import data
 from datetime import datetime
 import logging
-from itertools import combinations
 import time
 from torch.optim.lr_scheduler import CosineAnnealingLR
-import shutil
 import torch
 import numpy as np
 
-from qec.core.codes import (
-    Get_surface_Code, Get_toric_Code, sign_to_bin, bin_to_sign,
-    BER, FER, EbN0_to_std
-)
+from qec.core.codes import Get_surface_Code
 
 
 def generate_correlated_noise(n_qubits, p_total, y_ratio=0.3):
@@ -374,43 +368,86 @@ def load_dataset(load_path):
     return data['syndromes'], data['labels'], data
 
 
-class Binarization(torch.autograd.Function):
-    @staticmethod
-    def forward(ctx, input):
-        ctx.save_for_backward(input)
-        return torch.sign(input)
+def setup_device(device_type):
+    """Setup compute device."""
+    if device_type == 'cpu':
+        device = torch.device("cpu")
+        logging.info("CPU를 사용합니다 (강제 설정).")
+    elif device_type == 'cuda':
+        if torch.cuda.is_available():
+            device = torch.device("cuda")
+            logging.info(f"NVIDIA GPU (CUDA)를 사용합니다: {torch.cuda.get_device_name(0)}")
+        else:
+            logging.warning("CUDA를 요청했지만 사용할 수 없습니다. CPU로 fallback합니다.")
+            device = torch.device("cpu")
+    elif device_type == 'xpu':
+        if hasattr(torch, 'xpu') and torch.xpu.is_available():
+            device = torch.device("xpu")
+            logging.info(f"Intel Arc GPU (XPU)를 사용합니다: {torch.xpu.get_device_name(0)}")
+        else:
+            logging.warning("XPU를 요청했지만 사용할 수 없습니다. CPU로 fallback합니다.")
+            device = torch.device("cpu")
+    else:  # auto
+        if torch.cuda.is_available():
+            device = torch.device("cuda")
+            logging.info(f"NVIDIA GPU (CUDA)를 사용합니다: {torch.cuda.get_device_name(0)}")
+        elif hasattr(torch, 'xpu') and torch.xpu.is_available():
+            device = torch.device("xpu")
+            logging.info(f"Intel Arc GPU (XPU)를 사용합니다: {torch.xpu.get_device_name(0)}")
+        else:
+            device = torch.device("cpu")
+            logging.info("사용 가능한 GPU가 없어 CPU를 사용합니다.")
+    return device
 
-    @staticmethod
-    def backward(ctx, grad_output):
-        x = ctx.saved_tensors
-        return grad_output*(torch.abs(x[0])<=1)
+
+def save_checkpoint(model, optimizer, scheduler, epoch, best_loss, path):
+    """Save training checkpoint."""
+    model_to_save = model.module if isinstance(model, torch.nn.DataParallel) else model
+    checkpoint = {
+        'epoch': epoch,
+        'model_state_dict': model_to_save.state_dict(),
+        'optimizer_state_dict': optimizer.state_dict(),
+        'scheduler_state_dict': scheduler.state_dict(),
+        'best_loss': best_loss,
+    }
+    torch.save(checkpoint, os.path.join(path, 'checkpoint.pt'))
+    torch.save(model_to_save, os.path.join(path, 'best_model'))
 
 
-def binarization(y):
-    return sign_to_bin(Binarization.apply(y))
+def load_checkpoint(path, model, optimizer, scheduler, device):
+    """Load training checkpoint."""
+    logging.info(f"Resuming from checkpoint: {path}")
+    checkpoint = torch.load(path, map_location=device, weights_only=False)
 
+    if isinstance(checkpoint, dict) and 'model_state_dict' in checkpoint:
+        if isinstance(model, torch.nn.DataParallel):
+            model.module.load_state_dict(checkpoint['model_state_dict'])
+        else:
+            model.load_state_dict(checkpoint['model_state_dict'])
 
-def logical_flipped(L, x):
-    return torch.matmul(x.float(), L.float()) % 2
+        optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+        scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
+        start_epoch = checkpoint['epoch'] + 1
+        best_loss = checkpoint.get('best_loss', float('inf'))
 
+        logging.info(f"Checkpoint loaded, resuming from epoch {start_epoch}, LR={scheduler.get_last_lr()[0]:.2e}")
+        return start_epoch, best_loss
+    else:
+        # Legacy model format
+        if isinstance(model, torch.nn.DataParallel):
+            model.module.load_state_dict(checkpoint.state_dict())
+        else:
+            model.load_state_dict(checkpoint.state_dict())
 
-def diff_GF2_mul(H, x):
-    H_bin = sign_to_bin(H) if -1 in H else H
-    x_bin = x
-
-    tmp = bin_to_sign(H_bin.unsqueeze(0)*x_bin.unsqueeze(-1))
-    tmp = torch.prod(tmp, 1)
-    tmp = sign_to_bin(tmp)
-
-    return tmp
+        logging.info("Model loaded (legacy format)")
+        return None, float('inf')
 
 
 def train(model, device, train_loader, optimizer, epoch, LR):
     model.train()
-    cum_loss = cum_ber = cum_ler = cum_samples = 0
-    correct = cum_loss1 = cum_loss2 = cum_loss3 = 0
+    cum_loss = cum_ler = cum_samples = 0
     t = time.time()
-    bin_fun = torch.sigmoid
+
     for batch_idx, (syndrome, labels) in enumerate(train_loader):
 
         syndrome, labels = syndrome.to(device), labels.to(device)
@@ -435,19 +472,17 @@ def train(model, device, train_loader, optimizer, epoch, LR):
         if (batch_idx+1) % (len(train_loader)//2) == 0 or batch_idx == len(train_loader) - 1:
             logging.info(
                 f'Training epoch {epoch}, Batch {batch_idx + 1}/{len(train_loader)}: LR={LR:.2e}, Loss={cum_loss / cum_samples:.5e} LER={1 -(cum_ler / cum_samples):.3e}')
-            logging.info(
-                f'***Loss={cum_loss / cum_samples:.5e}')
     logging.info(f'Epoch {epoch} Train Time {time.time() - t}s\n')
-    return cum_loss / cum_samples, cum_ber / cum_samples, cum_ler / cum_samples
+    return cum_loss / cum_samples
 
 
 def test(model, device, test_loader_list, ps_range_test, cum_count_lim):
     model.eval()
-    test_loss_ber_list, test_loss_ler_list, cum_samples_all = [], [], []
+    test_loss_ler_list, cum_samples_all = [], []
     t = time.time()
     with torch.no_grad():
         for ii, test_loader in enumerate(test_loader_list):
-            test_ber = test_ler = cum_count = 0.
+            test_ler = cum_count = 0.
             while True:
                 (syndrome, labels) = next(iter(test_loader))
 
@@ -462,7 +497,6 @@ def test(model, device, test_loader_list, ps_range_test, cum_count_lim):
                 if cum_count > cum_count_lim:
                     break
             cum_samples_all.append(cum_count)
-            test_loss_ber_list.append(test_ber / cum_count)
             test_loss_ler_list.append(1 - (test_ler / cum_count))
 
             # Handle both numeric and string p values
@@ -483,38 +517,12 @@ def test(model, device, test_loader_list, ps_range_test, cum_count_lim):
                  in (zip(test_loss_ler_list, ps_range_test))]))
         logging.info(f'Mean LER = {np.mean(test_loss_ler_list):.3e}')
     logging.info(f'# of testing samples: {cum_samples_all}\n Test Time {time.time() - t} s\n')
-    return test_loss_ber_list, test_loss_ler_list
+    return test_loss_ler_list
 
 
 def main(args):
     # Device selection
-    if args.device == 'cpu':
-        device = torch.device("cpu")
-        logging.info("CPU를 사용합니다 (강제 설정).")
-    elif args.device == 'cuda':
-        if torch.cuda.is_available():
-            device = torch.device("cuda")
-            logging.info(f"NVIDIA GPU (CUDA)를 사용합니다: {torch.cuda.get_device_name(0)}")
-        else:
-            logging.warning("CUDA를 요청했지만 사용할 수 없습니다. CPU로 fallback합니다.")
-            device = torch.device("cpu")
-    elif args.device == 'xpu':
-        if hasattr(torch, 'xpu') and torch.xpu.is_available():
-            device = torch.device("xpu")
-            logging.info(f"Intel Arc GPU (XPU)를 사용합니다: {torch.xpu.get_device_name(0)}")
-        else:
-            logging.warning("XPU를 요청했지만 사용할 수 없습니다. CPU로 fallback합니다.")
-            device = torch.device("cpu")
-    else:  # auto
-        if torch.cuda.is_available():
-            device = torch.device("cuda")
-            logging.info(f"NVIDIA GPU (CUDA)를 사용합니다: {torch.cuda.get_device_name(0)}")
-        elif hasattr(torch, 'xpu') and torch.xpu.is_available():
-            device = torch.device("xpu")
-            logging.info(f"Intel Arc GPU (XPU)를 사용합니다: {torch.xpu.get_device_name(0)}")
-        else:
-            device = torch.device("cpu")
-            logging.info("사용 가능한 GPU가 없어 CPU를 사용합니다.")
+    device = setup_device(args.device)
 
     args.code.logic_matrix = args.code.logic_matrix.to(device)
     args.code.pc_matrix = args.code.pc_matrix.to(device)
@@ -656,37 +664,35 @@ def main(args):
 
     best_loss = float('inf')
     patience_counter = 0
+    start_epoch = args.start_epoch
 
-    # Resume from model
+    # Resume from checkpoint
     if args.resume:
         if os.path.exists(args.resume):
-            logging.info(f"Resuming from model: {args.resume}")
-            loaded_model = torch.load(args.resume, map_location=device, weights_only=False)
-
-            if isinstance(model, torch.nn.DataParallel):
-                model.module.load_state_dict(loaded_model.state_dict())
+            loaded_epoch, loaded_best_loss = load_checkpoint(
+                args.resume, model, optimizer, scheduler, device
+            )
+            if loaded_epoch:
+                start_epoch = loaded_epoch
+                best_loss = loaded_best_loss
             else:
-                model.load_state_dict(loaded_model.state_dict())
-
-            # Scheduler를 start_epoch에 맞게 조정
-            for _ in range(args.start_epoch - 1):
-                scheduler.step()
-
-            logging.info(f"Model loaded, starting from epoch {args.start_epoch}, LR={scheduler.get_last_lr()[0]:.2e}")
+                # Legacy format - adjust scheduler manually
+                for _ in range(args.start_epoch - 1):
+                    scheduler.step()
+                logging.info(f"Starting from epoch {args.start_epoch}, LR={scheduler.get_last_lr()[0]:.2e}")
         else:
-            logging.error(f"Model not found: {args.resume}")
+            logging.error(f"Checkpoint not found: {args.resume}")
             return
 
-    for epoch in range(args.start_epoch, args.epochs + 1):
+    for epoch in range(start_epoch, args.epochs + 1):
         # Shuffle seed는 epoch마다 다르게 (데이터는 index 기반으로 고정)
         g.manual_seed(args.seed + epoch)
 
-        loss, ber, ler = train(model, device, train_dataloader, optimizer,
-                               epoch, LR=scheduler.get_last_lr()[0])
+        loss = train(model, device, train_dataloader, optimizer,
+                     epoch, LR=scheduler.get_last_lr()[0])
         scheduler.step()
 
-        model_to_save = model.module if isinstance(model, torch.nn.DataParallel) else model
-        torch.save(model_to_save, os.path.join(args.path, 'best_model'))
+        save_checkpoint(model, optimizer, scheduler, epoch, best_loss, args.path)
 
         # Check for improvement
         if loss < best_loss - args.min_delta:
@@ -841,9 +847,7 @@ if __name__ == '__main__':
     code.k = code.n - code.pc_matrix.shape[0]
     code.code_type = args.code_type
     args.code = code
-
-    np.savetxt('Hx_test.txt', code.pc_matrix, fmt='%d', delimiter=',')
-    np.savetxt('logX_test.txt', code.logic_matrix, fmt='%d', delimiter=',')
+    args.L = args.code_L  # For 2D positional encoding
 
     model_dir = os.path.join('Final_Results_QECCT', args.code_type,
                              'Transformer_Code_L_' + str(args.code_L),
@@ -898,7 +902,7 @@ if __name__ == '__main__':
             if result:
                 all_results.append(result)
                 if result.get('final_ler'):
-                    all_lers.append(np.mean(result['final_ler'][1]))  # Mean LER
+                    all_lers.append(np.mean(result['final_ler']))
 
         # Print statistical summary
         if all_lers:
