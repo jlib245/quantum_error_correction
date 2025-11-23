@@ -247,10 +247,13 @@ class QECC_Dataset(data.Dataset):
         true_class_index = (l_z_flip * 2 + l_x_flip).long()
 
         # Apply augmentation if enabled (transforms both syndrome and label)
+        # Use index-based deterministic selection for reproducibility
         syndrome_out = syndrome.float()
         label_out = true_class_index
         if self.augmenter is not None:
-            syndrome_out, label_out = self.augmenter.random_transform(syndrome_out, label=label_out)
+            transform_idx = index % len(self.augmenter.transform_names)
+            transform = self.augmenter.transform_names[transform_idx]
+            syndrome_out, label_out = self.augmenter(syndrome_out, label=label_out, transform=transform)
 
         return syndrome_out, label_out.cpu()
 
