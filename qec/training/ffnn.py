@@ -16,9 +16,7 @@ from qec.training.common import (
     setup_device,
     load_surface_code,
     create_surface_code_pure_error_lut,
-    train_epoch,
-    test_model,
-    save_checkpoint,
+    train_with_validation,
 )
 
 
@@ -65,7 +63,7 @@ def main(args):
         pin_memory=True,
     )
 
-    test_loaders = [
+    val_loaders = [
         DataLoader(
             QECC_Dataset(code, x_error_basis_dict, z_error_basis_dict, [p],
                         length=args.test_batch_size, args=args, seed_offset=10_000_000),
@@ -77,33 +75,9 @@ def main(args):
         ) for p in ps_test
     ]
 
-    # Training loop
-    best_loss = float('inf')
-    patience_counter = 0
-
-    for epoch in range(1, args.epochs + 1):
-        loss = train_epoch(model, device, train_loader, optimizer, epoch, scheduler.get_last_lr()[0])
-        scheduler.step()
-
-        if loss < best_loss - args.min_delta:
-            best_loss = loss
-            patience_counter = 0
-            save_checkpoint(model, optimizer, scheduler, epoch, best_loss, args.path)
-            logging.info(f'Model Saved - Best loss: {best_loss:.5e}')
-        else:
-            patience_counter += 1
-            logging.info(f'No improvement. Patience: {patience_counter}/{args.patience}')
-
-        if args.patience > 0 and patience_counter >= args.patience:
-            logging.info(f'Early stopping at epoch {epoch}')
-            break
-
-        if epoch % 10 == 0:
-            test_model(model, device, test_loaders, ps_test, args.test_samples)
-
-    # Final test
-    model = torch.load(os.path.join(args.path, 'best_model'), weights_only=False).to(device)
-    test_model(model, device, test_loaders, ps_test, args.test_samples)
+    # Training with validation-based early stopping
+    train_with_validation(model, device, train_loader, val_loaders, optimizer, scheduler,
+                          args, ps_test)
 
 
 if __name__ == '__main__':
@@ -120,8 +94,10 @@ if __name__ == '__main__':
     parser.add_argument('--samples_per_epoch', type=int, default=100000)
     parser.add_argument('--seed', type=int, default=42)
     parser.add_argument('--device', type=str, default='auto')
-    parser.add_argument('--patience', type=int, default=20)
+    parser.add_argument('--patience', type=int, default=4)
     parser.add_argument('--min_delta', type=float, default=0.0)
+    parser.add_argument('--val_interval', type=int, default=5)
+    parser.add_argument('--resume', type=str, default=None)
 
     # Code
     parser.add_argument('-L', '--code_L', type=int, default=5)

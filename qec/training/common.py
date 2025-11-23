@@ -535,7 +535,7 @@ def test_model(model, device, test_loader_list, ps_range_test, cum_count_lim):
 # Checkpoint
 # ============================================
 
-def save_checkpoint(model, optimizer, scheduler, epoch, best_loss, path):
+def save_checkpoint(model, optimizer, scheduler, epoch, best_metric, path, metric_name='loss'):
     """Save training checkpoint."""
     model_to_save = model.module if isinstance(model, torch.nn.DataParallel) else model
     checkpoint = {
@@ -543,7 +543,8 @@ def save_checkpoint(model, optimizer, scheduler, epoch, best_loss, path):
         'model_state_dict': model_to_save.state_dict(),
         'optimizer_state_dict': optimizer.state_dict(),
         'scheduler_state_dict': scheduler.state_dict(),
-        'best_loss': best_loss,
+        'best_metric': best_metric,
+        'metric_name': metric_name,
     }
     torch.save(checkpoint, os.path.join(path, 'checkpoint.pt'))
     torch.save(model_to_save, os.path.join(path, 'best_model'))
@@ -563,10 +564,10 @@ def load_checkpoint(path, model, optimizer, scheduler, device):
         optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
         scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
         start_epoch = checkpoint['epoch'] + 1
-        best_loss = checkpoint.get('best_loss', float('inf'))
+        best_metric = checkpoint.get('best_metric', checkpoint.get('best_loss', float('inf')))
 
         logging.info(f"Checkpoint loaded, resuming from epoch {start_epoch}, LR={scheduler.get_last_lr()[0]:.2e}")
-        return start_epoch, best_loss
+        return start_epoch, best_metric
     else:
         # Legacy model format
         if isinstance(model, torch.nn.DataParallel):
@@ -576,3 +577,78 @@ def load_checkpoint(path, model, optimizer, scheduler, device):
 
         logging.info("Model loaded (legacy format)")
         return None, float('inf')
+
+
+# ============================================
+# Training Loop with Validation-based Early Stopping
+# ============================================
+
+def train_with_validation(model, device, train_loader, val_loaders, optimizer, scheduler,
+                          args, ps_test):
+    """
+    Validation LER 기반 early stopping을 사용하는 training loop.
+
+    Args:
+        model: 모델
+        device: 디바이스
+        train_loader: 학습 데이터로더
+        val_loaders: 검증 데이터로더 리스트 (각 p 값에 대해)
+        optimizer: 옵티마이저
+        scheduler: 스케줄러
+        args: 설정 (epochs, patience, min_delta, path, test_samples 등)
+        ps_test: 테스트 p 값 리스트
+
+    Returns:
+        best_val_ler: 최고 validation LER
+    """
+    start_epoch = 1
+    best_val_ler = float('inf')
+
+    # Resume from checkpoint
+    if hasattr(args, 'resume') and args.resume and os.path.exists(args.resume):
+        loaded_epoch, loaded_best = load_checkpoint(
+            args.resume, model, optimizer, scheduler, device
+        )
+        if loaded_epoch:
+            start_epoch = loaded_epoch + 1
+            best_val_ler = loaded_best
+            logging.info(f"Resumed from epoch {loaded_epoch}, best_val_ler={best_val_ler:.5e}")
+
+    patience_counter = 0
+    val_interval = getattr(args, 'val_interval', 5)  # 기본 5 epoch마다 validation
+
+    for epoch in range(start_epoch, args.epochs + 1):
+        # Train
+        train_loss = train_epoch(model, device, train_loader, optimizer, epoch,
+                                  scheduler.get_last_lr()[0])
+        scheduler.step()
+
+        # Validation (매 val_interval epoch 또는 마지막 epoch)
+        if epoch % val_interval == 0 or epoch == args.epochs:
+            val_lers = test_model(model, device, val_loaders, ps_test, args.test_samples)
+            mean_val_ler = np.mean(val_lers)
+
+            # Best model 저장 (validation LER 기준)
+            if mean_val_ler < best_val_ler - args.min_delta:
+                best_val_ler = mean_val_ler
+                patience_counter = 0
+                save_checkpoint(model, optimizer, scheduler, epoch, best_val_ler,
+                               args.path, metric_name='val_ler')
+                logging.info(f'Model Saved - Best val LER: {best_val_ler:.5e}')
+            else:
+                patience_counter += 1
+                logging.info(f'No improvement. Patience: {patience_counter}/{args.patience}')
+
+            # Early stopping
+            if args.patience > 0 and patience_counter >= args.patience:
+                logging.info(f'Early stopping at epoch {epoch}')
+                break
+
+    # Final test with best model
+    logging.info("Best model loaded")
+    model_path = os.path.join(args.path, 'best_model')
+    if os.path.exists(model_path):
+        best_model = torch.load(model_path, weights_only=False).to(device)
+        test_model(best_model, device, val_loaders, ps_test, args.test_samples)
+
+    return best_val_ler
