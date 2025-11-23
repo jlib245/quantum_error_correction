@@ -109,18 +109,18 @@ def main(args):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='CNN Decoder Training')
 
-    # Training
-    parser.add_argument('--epochs', type=int, default=100)
-    parser.add_argument('--workers', type=int, default=4)
+    # Training (A100 optimized)
+    parser.add_argument('--epochs', type=int, default=200)
+    parser.add_argument('--workers', type=int, default=8)
     parser.add_argument('--lr', type=float, default=0.001)
     parser.add_argument('--min_lr', type=float, default=1e-6)
-    parser.add_argument('--batch_size', type=int, default=512)
-    parser.add_argument('--test_batch_size', type=int, default=512)
-    parser.add_argument('--test_samples', type=int, default=10000)
-    parser.add_argument('--samples_per_epoch', type=int, default=100000)
+    parser.add_argument('--batch_size', type=int, default=2048)  # A100 40GB can handle large batches
+    parser.add_argument('--test_batch_size', type=int, default=4096)
+    parser.add_argument('--test_samples', type=int, default=50000)
+    parser.add_argument('--samples_per_epoch', type=int, default=500000)  # More samples per epoch
     parser.add_argument('--seed', type=int, default=42)
     parser.add_argument('--device', type=str, default='auto')
-    parser.add_argument('--patience', type=int, default=20)
+    parser.add_argument('--patience', type=int, default=30)
     parser.add_argument('--min_delta', type=float, default=0.0)
 
     # Code
@@ -130,9 +130,9 @@ if __name__ == '__main__':
     parser.add_argument('-y', '--y_ratio', type=float, default=0.0)
 
     # Model
-    parser.add_argument('--large', action='store_true', help='Use larger CNN')
+    parser.add_argument('--large', action='store_true', help='Use larger CNN with ResNet blocks')
     parser.add_argument('--dropout', type=float, default=0.1)
-    parser.add_argument('--label_smoothing', type=float, default=0.0)
+    parser.add_argument('--label_smoothing', type=float, default=0.1)  # Enable by default
 
     args = parser.parse_args()
 
