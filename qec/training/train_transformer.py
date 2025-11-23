@@ -584,7 +584,7 @@ def main(args):
         logging.info("Intel Arc GPU (XPU) - 단일 GPU 모드 (권장: L>=5, batch_size>=512)")
 
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
-    scheduler = CosineAnnealingLR(optimizer, T_max=args.epochs, eta_min=1e-6)
+    scheduler = CosineAnnealingLR(optimizer, T_max=args.epochs, eta_min=args.min_lr)
 
     logging.info(f'PC matrix shape {code.pc_matrix.shape}')
     logging.info(model)
@@ -761,6 +761,8 @@ if __name__ == '__main__':
     parser.add_argument('--epochs', type=int, default=200)
     parser.add_argument('--workers', type=int, default=4)
     parser.add_argument('--lr', type=float, default=0.001)
+    parser.add_argument('--min_lr', type=float, default=1e-6,
+                        help='Minimum LR for cosine annealing (increase with augmentation)')
     parser.add_argument('--gpus', type=str, default='0', help='gpus ids')
     parser.add_argument('--batch_size', type=int, default=128)
     parser.add_argument('--test_batch_size', type=int, default=512)
