@@ -702,15 +702,13 @@ def main(args):
                      epoch, LR=scheduler.get_last_lr()[0])
         scheduler.step()
 
-        save_checkpoint(model, optimizer, scheduler, epoch, best_loss, args.path)
-
         # Check for improvement
         if loss < best_loss - args.min_delta:
             best_loss = loss
             patience_counter = 0
 
-            model_to_save = model.module if isinstance(model, torch.nn.DataParallel) else model
-            torch.save(model_to_save, os.path.join(args.path, 'final_model'))
+            # Save best model only
+            save_checkpoint(model, optimizer, scheduler, epoch, best_loss, args.path)
 
             logging.info('Model Saved - New best loss: {:.5e}'.format(best_loss))
         else:
