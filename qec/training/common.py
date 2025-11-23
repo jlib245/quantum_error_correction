@@ -200,18 +200,18 @@ def _get_surface_outer_path_z(face_row, face_col, fixed_col, L, device):
 def simple_decoder_C_torch(syndrome_vector, x_error_basis, z_error_basis, H_z, H_x):
     """LUT 기반 simple decoder"""
     device = syndrome_vector.device
-    c_x = torch.zeros(H_z.shape[1], dtype=torch.uint8, device=device)
-    c_z = torch.zeros(H_x.shape[1], dtype=torch.uint8, device=device)
+    c_x = torch.zeros(H_z.shape[1], dtype=torch.int64, device=device)
+    c_z = torch.zeros(H_x.shape[1], dtype=torch.int64, device=device)
 
     s_z = syndrome_vector[:H_z.shape[0]]
     s_x = syndrome_vector[H_z.shape[0]:]
 
     for i in range(len(s_z)):
         if s_z[i] == 1 and i in x_error_basis:
-            c_x.bitwise_xor_(x_error_basis[i].to(dtype=torch.uint8, device=device))
+            c_x = c_x ^ x_error_basis[i]
     for i in range(len(s_x)):
         if s_x[i] == 1 and i in z_error_basis:
-            c_z.bitwise_xor_(z_error_basis[i].to(dtype=torch.uint8, device=device))
+            c_z = c_z ^ z_error_basis[i]
 
     return torch.cat([c_z, c_x])
 
