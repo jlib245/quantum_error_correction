@@ -78,7 +78,7 @@ def evaluate_nn_model(model_path, model_type, Hx, Hz, Lx, Lz, p_errors,
     logging.info(f"Model path: {model_path}")
 
     # Import dataset and evaluation functions
-    from qec.training.train_transformer import (
+    from qec.training.common import (
         QECC_Dataset,
         create_surface_code_pure_error_lut,
         simple_decoder_C_torch
