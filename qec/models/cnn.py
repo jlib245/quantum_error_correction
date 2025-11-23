@@ -53,8 +53,7 @@ def compute_stabilizer_positions_from_H(H, L):
     """
     H matrix에서 stabilizer의 2D 위치를 계산.
 
-    각 stabilizer가 터치하는 큐빗들의 중심 위치를 계산.
-    큐빗 idx -> (row, col): idx // L, idx % L
+    각 stabilizer가 터치하는 큐빗들의 최소 좌표를 사용하여 고유 위치 보장.
 
     Args:
         H: parity check matrix (n_stabilizers, n_qubits)
@@ -77,15 +76,11 @@ def compute_stabilizer_positions_from_H(H, L):
         rows = [q // L for q in qubits]
         cols = [q % L for q in qubits]
 
-        # 중심 좌표 (반올림)
-        center_row = int(round(np.mean(rows)))
-        center_col = int(round(np.mean(cols)))
+        # 최소 좌표 사용 (plaquette의 top-left corner)
+        min_row = min(rows)
+        min_col = min(cols)
 
-        # Grid 범위 내로 클램프
-        center_row = min(max(center_row, 0), L - 1)
-        center_col = min(max(center_col, 0), L - 1)
-
-        coords[stab_idx] = (center_row, center_col)
+        coords[stab_idx] = (min_row, min_col)
 
     return coords
 
