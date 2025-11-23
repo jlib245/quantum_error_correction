@@ -14,6 +14,7 @@ import torch
 import numpy as np
 
 from qec.core.codes import Get_surface_Code
+from qec.utils.augmentation import SyndromeAugmenter
 
 
 def generate_correlated_noise(n_qubits, p_total, y_ratio=0.3):
@@ -175,11 +176,12 @@ def simple_decoder_C_torch(syndrome_vector, x_error_basis, z_error_basis, H_z, H
 
 
 class QECC_Dataset(data.Dataset):
-    def __init__(self, code, x_error_basis, z_error_basis, ps, len, args, seed_offset=0):
+    def __init__(self, code, x_error_basis, z_error_basis, ps, len, args, seed_offset=0, augment=False):
         self.ps = ps
         self.len = len
         self.args = args
         self.seed_offset = seed_offset  # Train: 0, Test: large number
+        self.augment = augment
 
         self.device = next(iter(x_error_basis.values())).device if x_error_basis else torch.device("cpu")
 
@@ -192,6 +194,12 @@ class QECC_Dataset(data.Dataset):
 
         self.x_error_basis_dict = x_error_basis
         self.z_error_basis_dict = z_error_basis
+
+        # Initialize augmenter if enabled
+        self.augmenter = None
+        if augment:
+            L = getattr(args, 'code_L', int(round(self.n_phys ** 0.5)))
+            self.augmenter = SyndromeAugmenter(self.H_z, self.H_x, L, transforms='all')
 
     def generate_noise(self, p):
         if self.args.y_ratio > 0:
@@ -238,7 +246,12 @@ class QECC_Dataset(data.Dataset):
 
         true_class_index = (l_z_flip * 2 + l_x_flip).long()
 
-        return syndrome.float(), true_class_index.cpu()
+        # Apply augmentation if enabled
+        syndrome_out = syndrome.float()
+        if self.augmenter is not None:
+            syndrome_out = self.augmenter.random_transform(syndrome_out)
+
+        return syndrome_out, true_class_index.cpu()
 
     def __len__(self):
         return self.len
@@ -633,7 +646,7 @@ def main(args):
         # Dynamic dataset generation (original behavior)
         train_dataloader = DataLoader(
             QECC_Dataset(code, x_error_basis_dict, z_error_basis_dict, ps_train,
-                        len=args.samples_per_epoch, args=args),
+                        len=args.samples_per_epoch, args=args, augment=args.augment),
             batch_size=int(args.batch_size),
             shuffle=True, num_workers=args.workers,
             persistent_workers=True if args.workers > 0 else False,
@@ -659,6 +672,9 @@ def main(args):
     best_loss = float('inf')
     patience_counter = 0
     start_epoch = args.start_epoch
+
+    if args.augment:
+        logging.info("Symmetry augmentation enabled (D4 group: 8 transforms)")
 
     # Resume from checkpoint
     if args.resume:
@@ -803,6 +819,8 @@ if __name__ == '__main__':
                         help='Structured label smoothing factor (0.0 = disabled, recommended: 0.1)')
     parser.add_argument('--dropout', type=float, default=0.0,
                         help='Dropout rate (0.0 = disabled, recommended: 0.1)')
+    parser.add_argument('--augment', action='store_true',
+                        help='Enable symmetry augmentation (D4 group: rotations + flips)')
 
     # qecc args
     parser.add_argument('--lambda_loss_ber', type=float, default=0.3,help='BER loss regularization')
