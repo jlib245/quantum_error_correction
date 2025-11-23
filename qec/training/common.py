@@ -219,12 +219,14 @@ def simple_decoder_C_torch(syndrome_vector, x_error_basis, z_error_basis, H_z, H
 # Code Loading
 # ============================================
 
+class Code:
+    """Code object for storing parity check and logical matrices."""
+    pass
+
+
 def load_surface_code(L, device):
     """Load surface code and return code object."""
     Hx, Hz, Lx, Lz = Get_surface_Code(L)
-
-    class Code:
-        pass
 
     code = Code()
     code.H_x = torch.from_numpy(Hx).long()
