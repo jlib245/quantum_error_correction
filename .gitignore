@@ -212,7 +212,6 @@ pyrightconfig.json
 
 __pycache__/
 *.pyc
-Final_Results_QECCT/
+Final_Results/
 experiments/
-Stim_Models/
 datasets/

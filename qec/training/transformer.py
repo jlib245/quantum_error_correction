@@ -155,7 +155,7 @@ if __name__ == '__main__':
 
     # Setup output dir
     timestamp = datetime.now().strftime('%d_%m_%Y_%H_%M_%S')
-    args.path = f'Final_Results_Transformer/surface/Transformer_L_{args.code_L}/{timestamp}'
+    args.path = f'Final_Results/surface/L_{args.code_L}/y_{args.y_ratio}/Transformer/{timestamp}'
     os.makedirs(args.path, exist_ok=True)
 
     # Logging

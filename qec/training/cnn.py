@@ -139,7 +139,7 @@ if __name__ == '__main__':
     # Setup output dir
     timestamp = datetime.now().strftime('%d_%m_%Y_%H_%M_%S')
     model_name = 'CNN_Large' if args.large else 'CNN'
-    args.path = f'Final_Results_CNN/surface/{model_name}_L_{args.code_L}/{timestamp}'
+    args.path = f'Final_Results/surface/L_{args.code_L}/y_{args.y_ratio}/{model_name}/{timestamp}'
     os.makedirs(args.path, exist_ok=True)
 
     # Logging

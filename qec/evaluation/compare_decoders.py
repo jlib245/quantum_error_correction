@@ -136,6 +136,12 @@ def evaluate_nn_model(model_path, model_type, Hx, Hz, Lx, Lz, p_errors,
             elif model_type.upper() == 'TRANSFORMER':
                 from qec.models.transformer import ECC_Transformer
                 model = ECC_Transformer(args, dropout=0)
+            elif model_type.upper() == 'CNN':
+                from qec.models.cnn import ECC_CNN
+                model = ECC_CNN(args, dropout=0)
+            elif model_type.upper() == 'CNN_LARGE':
+                from qec.models.cnn import ECC_CNN_Large
+                model = ECC_CNN_Large(args, dropout=0)
             else:
                 logging.error(f"Unknown model type: {model_type}")
                 return None
@@ -275,7 +281,9 @@ def plot_comparison_graphs(results_dict, save_dir, L, y_ratio):
     styles = {
         'MWPM': {'color': 'blue', 'marker': 'o', 'linestyle': '-'},
         'Transformer': {'color': 'red', 'marker': 's', 'linestyle': '--'},
-        'FFNN': {'color': 'green', 'marker': '^', 'linestyle': '-.'}
+        'FFNN': {'color': 'green', 'marker': '^', 'linestyle': '-.'},
+        'CNN': {'color': 'purple', 'marker': 'd', 'linestyle': ':'},
+        'CNN_Large': {'color': 'orange', 'marker': 'v', 'linestyle': '-'}
     }
 
     # Plot LER (Logical Error Rate)
@@ -390,6 +398,26 @@ def main(args):
         if ffnn_results:
             all_results['FFNN'] = ffnn_results
 
+    # Evaluate CNN
+    if args.cnn_model:
+        cnn_results = evaluate_nn_model(
+            args.cnn_model, 'CNN',
+            Hx, Hz, Lx, Lz, args.p_errors,
+            n_shots=args.n_shots, y_ratio=args.y_ratio, device=device
+        )
+        if cnn_results:
+            all_results['CNN'] = cnn_results
+
+    # Evaluate CNN_Large
+    if args.cnn_large_model:
+        cnn_large_results = evaluate_nn_model(
+            args.cnn_large_model, 'CNN_Large',
+            Hx, Hz, Lx, Lz, args.p_errors,
+            n_shots=args.n_shots, y_ratio=args.y_ratio, device=device
+        )
+        if cnn_large_results:
+            all_results['CNN_Large'] = cnn_large_results
+
     # Print comparison
     if all_results:
         print_comparison_table(all_results)
@@ -417,6 +445,10 @@ if __name__ == '__main__':
                         help='Path to trained Transformer model')
     parser.add_argument('--ffnn_model', type=str, default=None,
                         help='Path to trained FFNN model')
+    parser.add_argument('--cnn_model', type=str, default=None,
+                        help='Path to trained CNN model')
+    parser.add_argument('--cnn_large_model', type=str, default=None,
+                        help='Path to trained CNN_Large model')
 
     args = parser.parse_args()
     main(args)
