@@ -167,6 +167,18 @@ def evaluate_nn_model(model_path, model_type, Hx, Hz, Lx, Lz, p_errors,
                 from qec.models.vit import ECC_ViT_Large
                 args.code_L = int(np.sqrt(Hx.shape[1]))
                 model = ECC_ViT_Large(args, dropout=0)
+            elif model_type.upper() == 'QUBIT_CENTRIC':
+                from qec.models.qubit_centric import ECC_QubitCentric
+                args.code_L = int(np.sqrt(Hx.shape[1]))
+                model = ECC_QubitCentric(args, dropout=0)
+            elif model_type.upper() == 'LUT_RESIDUAL':
+                from qec.models.qubit_centric import ECC_LUT_Residual
+                args.code_L = int(np.sqrt(Hx.shape[1]))
+                model = ECC_LUT_Residual(args, x_error_basis, z_error_basis, dropout=0)
+            elif model_type.upper() == 'LUT_CONCAT':
+                from qec.models.qubit_centric import ECC_LUT_Concat
+                args.code_L = int(np.sqrt(Hx.shape[1]))
+                model = ECC_LUT_Concat(args, x_error_basis, z_error_basis, dropout=0)
             else:
                 logging.error(f"Unknown model type: {model_type}")
                 return None
@@ -466,6 +478,36 @@ def main(args):
         if vit_large_results:
             all_results['ViT_Large'] = vit_large_results
 
+    # Evaluate QubitCentric
+    if args.qubit_centric_model:
+        qc_results = evaluate_nn_model(
+            args.qubit_centric_model, 'QUBIT_CENTRIC',
+            Hx, Hz, Lx, Lz, args.p_errors,
+            n_shots=args.n_shots, y_ratio=args.y_ratio, device=device
+        )
+        if qc_results:
+            all_results['QubitCentric'] = qc_results
+
+    # Evaluate LUT_Residual
+    if args.lut_residual_model:
+        lut_res_results = evaluate_nn_model(
+            args.lut_residual_model, 'LUT_RESIDUAL',
+            Hx, Hz, Lx, Lz, args.p_errors,
+            n_shots=args.n_shots, y_ratio=args.y_ratio, device=device
+        )
+        if lut_res_results:
+            all_results['LUT_Residual'] = lut_res_results
+
+    # Evaluate LUT_Concat
+    if args.lut_concat_model:
+        lut_concat_results = evaluate_nn_model(
+            args.lut_concat_model, 'LUT_CONCAT',
+            Hx, Hz, Lx, Lz, args.p_errors,
+            n_shots=args.n_shots, y_ratio=args.y_ratio, device=device
+        )
+        if lut_concat_results:
+            all_results['LUT_Concat'] = lut_concat_results
+
     # Print comparison
     if all_results:
         print_comparison_table(all_results)
@@ -501,6 +543,12 @@ if __name__ == '__main__':
                         help='Path to trained ViT model')
     parser.add_argument('--vit_large_model', type=str, default=None,
                         help='Path to trained ViT_Large model')
+    parser.add_argument('--qubit_centric_model', type=str, default=None,
+                        help='Path to trained QubitCentric model')
+    parser.add_argument('--lut_residual_model', type=str, default=None,
+                        help='Path to trained LUT_Residual model')
+    parser.add_argument('--lut_concat_model', type=str, default=None,
+                        help='Path to trained LUT_Concat model')
 
     args = parser.parse_args()
     main(args)
