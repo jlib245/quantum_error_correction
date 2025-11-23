@@ -168,15 +168,15 @@ class ECC_CNN(nn.Module):
         s_z = syndrome[:, :self.n_z]  # Z stabilizer syndromes
         s_x = syndrome[:, self.n_z:]  # X stabilizer syndromes
 
-        # Place Z stabilizers at computed positions
+        # Place Z stabilizers at computed positions (accumulate, don't overwrite)
         for idx, (row, col) in self.z_coord_map.items():
             if idx < self.n_z:
-                z_grid[:, row, col] = s_z[:, idx]
+                z_grid[:, row, col] += s_z[:, idx]
 
-        # Place X stabilizers at computed positions
+        # Place X stabilizers at computed positions (accumulate, don't overwrite)
         for idx, (row, col) in self.x_coord_map.items():
             if idx < self.n_x:
-                x_grid[:, row, col] = s_x[:, idx]
+                x_grid[:, row, col] += s_x[:, idx]
 
         # Stack as 2 channels: (batch, 2, H, W)
         grid = torch.stack([z_grid, x_grid], dim=1)
@@ -276,11 +276,11 @@ class ECC_CNN_Large(nn.Module):
 
         for idx, (row, col) in self.z_coord_map.items():
             if idx < self.n_z:
-                z_grid[:, row, col] = s_z[:, idx]
+                z_grid[:, row, col] += s_z[:, idx]
 
         for idx, (row, col) in self.x_coord_map.items():
             if idx < self.n_x:
-                x_grid[:, row, col] = s_x[:, idx]
+                x_grid[:, row, col] += s_x[:, idx]
 
         return torch.stack([z_grid, x_grid], dim=1)
 

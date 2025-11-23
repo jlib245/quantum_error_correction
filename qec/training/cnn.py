@@ -126,7 +126,7 @@ if __name__ == '__main__':
     # Code
     parser.add_argument('-L', '--code_L', type=int, default=5)
     parser.add_argument('-p', '--p_errors', type=float, nargs='+',
-                        default=[0.01, 0.03, 0.05, 0.07, 0.09, 0.1, 0.11, 0.12, 0.13])
+                        default=[0.07, 0.08, 0.09, 0.10, 0.11, 0.12, 0.13])
     parser.add_argument('-y', '--y_ratio', type=float, default=0.0)
 
     # Model
