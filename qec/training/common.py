@@ -494,9 +494,7 @@ def test_model(model, device, test_loader_list, ps_range_test, cum_count_lim):
     with torch.no_grad():
         for ii, test_loader in enumerate(test_loader_list):
             test_ler = cum_count = 0.
-            while True:
-                (syndrome, labels) = next(iter(test_loader))
-
+            for syndrome, labels in test_loader:
                 syndrome, labels = syndrome.to(device), labels.to(device)
                 outputs = model(syndrome)
 
@@ -505,7 +503,7 @@ def test_model(model, device, test_loader_list, ps_range_test, cum_count_lim):
 
                 test_ler += correct
                 cum_count += syndrome.shape[0]
-                if cum_count > cum_count_lim:
+                if cum_count >= cum_count_lim:
                     break
             cum_samples_all.append(cum_count)
             test_loss_ler_list.append(1 - (test_ler / cum_count))

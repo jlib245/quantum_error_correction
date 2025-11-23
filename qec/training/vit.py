@@ -67,7 +67,7 @@ def main(args):
     val_loaders = [
         DataLoader(
             QECC_Dataset(code, x_error_basis_dict, z_error_basis_dict, [p],
-                        length=args.test_batch_size, args=args, seed_offset=10_000_000),
+                        length=args.test_samples, args=args, seed_offset=10_000_000),
             batch_size=args.test_batch_size,
             shuffle=False,
             num_workers=args.workers,
@@ -91,7 +91,7 @@ if __name__ == '__main__':
     parser.add_argument('--min_lr', type=float, default=1e-4)
     parser.add_argument('--batch_size', type=int, default=2048)
     parser.add_argument('--test_batch_size', type=int, default=4096)
-    parser.add_argument('--test_samples', type=int, default=50000)
+    parser.add_argument('--test_samples', type=int, default=10000)
     parser.add_argument('--samples_per_epoch', type=int, default=2000000)
     parser.add_argument('--seed', type=int, default=42)
     parser.add_argument('--device', type=str, default='auto')
@@ -118,7 +118,10 @@ if __name__ == '__main__':
 
     # Setup output dir
     timestamp = datetime.now().strftime('%d_%m_%Y_%H_%M_%S')
-    model_name = 'ViT_Large' if args.large else 'ViT'
+    if args.large:
+        model_name = 'ViT_Large'
+    else:
+        model_name = 'ViT'
     args.path = f'Final_Results/surface/L_{args.code_L}/y_{args.y_ratio}/{model_name}/{timestamp}'
     os.makedirs(args.path, exist_ok=True)
 

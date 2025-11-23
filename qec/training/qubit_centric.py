@@ -1,5 +1,10 @@
 """
-Transformer Training Script for Quantum Error Correction
+Qubit-Centric CNN Training Script for Quantum Error Correction
+
+Models:
+- QubitCentric: H.T @ syndrome only (2ch)
+- LUT_Residual: residual = real_count - lut_count (2ch)
+- LUT_Concat: [real_count, lut_error] (4ch)
 """
 import argparse
 import random
@@ -26,15 +31,30 @@ def main(args):
     # Load code
     code = load_surface_code(args.code_L, device)
     args.code = code
-    args.L = args.code_L  # For 2D positional encoding
+    args.L = args.code_L
 
     x_error_basis_dict = create_surface_code_pure_error_lut(args.code_L, 'X_only', device)
     z_error_basis_dict = create_surface_code_pure_error_lut(args.code_L, 'Z_only', device)
 
     # Create model
-    from qec.models.transformer import ECC_Transformer
+    from qec.models.qubit_centric import ECC_QubitCentric, ECC_LUT_Residual, ECC_LUT_Concat
 
-    model = ECC_Transformer(args, dropout=args.dropout, label_smoothing=args.label_smoothing).to(device)
+    if args.model_type == 'qubit_centric':
+        model = ECC_QubitCentric(
+            args, dropout=args.dropout, label_smoothing=args.label_smoothing
+        ).to(device)
+    elif args.model_type == 'lut_residual':
+        model = ECC_LUT_Residual(
+            args, x_error_basis_dict, z_error_basis_dict,
+            dropout=args.dropout, label_smoothing=args.label_smoothing
+        ).to(device)
+    elif args.model_type == 'lut_concat':
+        model = ECC_LUT_Concat(
+            args, x_error_basis_dict, z_error_basis_dict,
+            dropout=args.dropout, label_smoothing=args.label_smoothing
+        ).to(device)
+    else:
+        raise ValueError(f"Unknown model type: {args.model_type}")
 
     if device.type == 'cuda' and torch.cuda.device_count() > 1:
         logging.info(f"Using {torch.cuda.device_count()} GPUs")
@@ -44,6 +64,7 @@ def main(args):
     scheduler = CosineAnnealingLR(optimizer, T_max=args.epochs, eta_min=args.min_lr)
 
     logging.info(f'Code L={args.code_L}')
+    logging.info(f'Model type: {args.model_type}')
     logging.info(model)
     logging.info(f'Parameters: {sum(p.numel() for p in model.parameters()):,}')
 
@@ -79,7 +100,7 @@ def main(args):
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='Transformer Decoder Training')
+    parser = argparse.ArgumentParser(description='Qubit-Centric CNN Decoder Training')
 
     # Training
     parser.add_argument('--epochs', type=int, default=50)
@@ -104,20 +125,19 @@ if __name__ == '__main__':
     parser.add_argument('-y', '--y_ratio', type=float, default=0.0)
 
     # Model
-    parser.add_argument('--N_dec', type=int, default=6)
+    parser.add_argument('--model_type', type=str, default='qubit_centric',
+                        choices=['qubit_centric', 'lut_residual', 'lut_concat'],
+                        help='Model type: qubit_centric, lut_residual, lut_concat')
     parser.add_argument('--d_model', type=int, default=128)
-    parser.add_argument('--h', type=int, default=16)
     parser.add_argument('--dropout', type=float, default=0.2)
     parser.add_argument('--label_smoothing', type=float, default=0.1)
-
-    # Ablation (for compatibility)
-    parser.add_argument('--no_g', type=int, default=0)
 
     args = parser.parse_args()
 
     # Setup output dir
     timestamp = datetime.now().strftime('%d_%m_%Y_%H_%M_%S')
-    args.path = f'Final_Results/surface/L_{args.code_L}/y_{args.y_ratio}/Transformer/{timestamp}'
+    model_name = args.model_type.upper()
+    args.path = f'Final_Results/surface/L_{args.code_L}/y_{args.y_ratio}/{model_name}/{timestamp}'
     os.makedirs(args.path, exist_ok=True)
 
     # Logging

@@ -125,7 +125,7 @@ def evaluate_nn_model(model_path, model_type, Hx, Hz, Lx, Lz, p_errors,
         logging.info("Model loaded successfully (full model)")
 
         # For ViT models, recompute coord maps to match current code
-        if model_type.upper() in ['VIT', 'VIT_LARGE']:
+        if model_type.upper() in ['VIT', 'VIT_LARGE', 'VIT_DUALGRID']:
             from qec.models.vit import compute_stabilizer_positions_from_H
             L = int(np.sqrt(Hx.shape[1]))
             model.L = L
@@ -134,6 +134,12 @@ def evaluate_nn_model(model_path, model_type, Hx, Hz, Lx, Lz, p_errors,
             model.n_x = Hx.shape[0]
             model.z_coord_map = compute_stabilizer_positions_from_H(Hz, L)
             model.x_coord_map = compute_stabilizer_positions_from_H(Hx, L)
+            # For DualGrid, also update H matrices
+            if model_type.upper() == 'VIT_DUALGRID':
+                device = next(model.parameters()).device
+                model.H_z = torch.from_numpy(Hz).float().to(device)
+                model.H_x = torch.from_numpy(Hx).float().to(device)
+                model.n_qubits = Hx.shape[1]
     except Exception as e:
         logging.info(f"Failed to load as full model: {e}")
         logging.info("Trying to load as state_dict...")
@@ -304,7 +310,8 @@ def plot_comparison_graphs(results_dict, save_dir, L, y_ratio):
         'CNN': {'color': 'purple', 'marker': 'd', 'linestyle': ':'},
         'CNN_Large': {'color': 'orange', 'marker': 'v', 'linestyle': '-'},
         'ViT': {'color': 'brown', 'marker': 'p', 'linestyle': '--'},
-        'ViT_Large': {'color': 'cyan', 'marker': 'h', 'linestyle': '-.'}
+        'ViT_Large': {'color': 'cyan', 'marker': 'h', 'linestyle': '-.'},
+        'ViT_DualGrid': {'color': 'magenta', 'marker': '*', 'linestyle': '-'}
     }
 
     # Plot LER (Logical Error Rate)
@@ -473,7 +480,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Compare QEC Decoders')
     parser.add_argument('-L', type=int, default=3, help='Code distance')
     parser.add_argument('-p', '--p_errors', type=float, nargs='+',
-                        default=[0.01, 0.02, 0.03, 0.04, 0.05, 0.06, 0.07, 0.08, 0.09, 0.1, 0.11, 0.12, 0.13],
+                        default=[0.07, 0.08, 0.09, 0.1, 0.11, 0.12, 0.13],
                         help='Error rates to test')
     parser.add_argument('-n', '--n_shots', type=int, default=10000,
                         help='Number of test shots per error rate')

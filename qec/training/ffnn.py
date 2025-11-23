@@ -66,7 +66,7 @@ def main(args):
     val_loaders = [
         DataLoader(
             QECC_Dataset(code, x_error_basis_dict, z_error_basis_dict, [p],
-                        length=args.test_batch_size, args=args, seed_offset=10_000_000),
+                        length=args.test_samples, args=args, seed_offset=10_000_000),
             batch_size=args.test_batch_size,
             shuffle=False,
             num_workers=args.workers,
@@ -90,7 +90,7 @@ if __name__ == '__main__':
     parser.add_argument('--min_lr', type=float, default=1e-4)
     parser.add_argument('--batch_size', type=int, default=2048)
     parser.add_argument('--test_batch_size', type=int, default=4096)
-    parser.add_argument('--test_samples', type=int, default=50000)
+    parser.add_argument('--test_samples', type=int, default=10000)
     parser.add_argument('--samples_per_epoch', type=int, default=2000000)
     parser.add_argument('--seed', type=int, default=42)
     parser.add_argument('--device', type=str, default='auto')
