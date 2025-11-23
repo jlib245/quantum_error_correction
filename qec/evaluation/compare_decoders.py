@@ -123,6 +123,17 @@ def evaluate_nn_model(model_path, model_type, Hx, Hz, Lx, Lz, p_errors,
         model = torch.load(model_path, map_location=device, weights_only=False)
         model.eval()
         logging.info("Model loaded successfully (full model)")
+
+        # For ViT models, recompute coord maps to match current code
+        if model_type.upper() in ['VIT', 'VIT_LARGE']:
+            from qec.models.vit import compute_stabilizer_positions_from_H
+            L = int(np.sqrt(Hx.shape[1]))
+            model.L = L
+            model.grid_size = L
+            model.n_z = Hz.shape[0]
+            model.n_x = Hx.shape[0]
+            model.z_coord_map = compute_stabilizer_positions_from_H(Hz, L)
+            model.x_coord_map = compute_stabilizer_positions_from_H(Hx, L)
     except Exception as e:
         logging.info(f"Failed to load as full model: {e}")
         logging.info("Trying to load as state_dict...")
@@ -142,6 +153,14 @@ def evaluate_nn_model(model_path, model_type, Hx, Hz, Lx, Lz, p_errors,
             elif model_type.upper() == 'CNN_LARGE':
                 from qec.models.cnn import ECC_CNN_Large
                 model = ECC_CNN_Large(args, dropout=0)
+            elif model_type.upper() == 'VIT':
+                from qec.models.vit import ECC_ViT
+                args.code_L = int(np.sqrt(Hx.shape[1]))
+                model = ECC_ViT(args, dropout=0)
+            elif model_type.upper() == 'VIT_LARGE':
+                from qec.models.vit import ECC_ViT_Large
+                args.code_L = int(np.sqrt(Hx.shape[1]))
+                model = ECC_ViT_Large(args, dropout=0)
             else:
                 logging.error(f"Unknown model type: {model_type}")
                 return None
@@ -283,7 +302,9 @@ def plot_comparison_graphs(results_dict, save_dir, L, y_ratio):
         'Transformer': {'color': 'red', 'marker': 's', 'linestyle': '--'},
         'FFNN': {'color': 'green', 'marker': '^', 'linestyle': '-.'},
         'CNN': {'color': 'purple', 'marker': 'd', 'linestyle': ':'},
-        'CNN_Large': {'color': 'orange', 'marker': 'v', 'linestyle': '-'}
+        'CNN_Large': {'color': 'orange', 'marker': 'v', 'linestyle': '-'},
+        'ViT': {'color': 'brown', 'marker': 'p', 'linestyle': '--'},
+        'ViT_Large': {'color': 'cyan', 'marker': 'h', 'linestyle': '-.'}
     }
 
     # Plot LER (Logical Error Rate)
@@ -418,6 +439,26 @@ def main(args):
         if cnn_large_results:
             all_results['CNN_Large'] = cnn_large_results
 
+    # Evaluate ViT
+    if args.vit_model:
+        vit_results = evaluate_nn_model(
+            args.vit_model, 'ViT',
+            Hx, Hz, Lx, Lz, args.p_errors,
+            n_shots=args.n_shots, y_ratio=args.y_ratio, device=device
+        )
+        if vit_results:
+            all_results['ViT'] = vit_results
+
+    # Evaluate ViT_Large
+    if args.vit_large_model:
+        vit_large_results = evaluate_nn_model(
+            args.vit_large_model, 'ViT_Large',
+            Hx, Hz, Lx, Lz, args.p_errors,
+            n_shots=args.n_shots, y_ratio=args.y_ratio, device=device
+        )
+        if vit_large_results:
+            all_results['ViT_Large'] = vit_large_results
+
     # Print comparison
     if all_results:
         print_comparison_table(all_results)
@@ -449,6 +490,10 @@ if __name__ == '__main__':
                         help='Path to trained CNN model')
     parser.add_argument('--cnn_large_model', type=str, default=None,
                         help='Path to trained CNN_Large model')
+    parser.add_argument('--vit_model', type=str, default=None,
+                        help='Path to trained ViT model')
+    parser.add_argument('--vit_large_model', type=str, default=None,
+                        help='Path to trained ViT_Large model')
 
     args = parser.parse_args()
     main(args)
