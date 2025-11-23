@@ -1,5 +1,5 @@
 """
-CNN Training Script for Quantum Error Correction
+ViT Training Script for Quantum Error Correction
 """
 import argparse
 import random
@@ -26,17 +26,18 @@ def main(args):
     # Load code
     code = load_surface_code(args.code_L, device)
     args.code = code
+    args.L = args.code_L
 
     x_error_basis_dict = create_surface_code_pure_error_lut(args.code_L, 'X_only', device)
     z_error_basis_dict = create_surface_code_pure_error_lut(args.code_L, 'Z_only', device)
 
     # Create model
-    from qec.models.cnn import ECC_CNN, ECC_CNN_Large
+    from qec.models.vit import ECC_ViT, ECC_ViT_Large
 
     if args.large:
-        model = ECC_CNN_Large(args, dropout=args.dropout, label_smoothing=args.label_smoothing).to(device)
+        model = ECC_ViT_Large(args, dropout=args.dropout, label_smoothing=args.label_smoothing).to(device)
     else:
-        model = ECC_CNN(args, dropout=args.dropout, label_smoothing=args.label_smoothing).to(device)
+        model = ECC_ViT(args, dropout=args.dropout, label_smoothing=args.label_smoothing).to(device)
 
     if device.type == 'cuda' and torch.cuda.device_count() > 1:
         logging.info(f"Using {torch.cuda.device_count()} GPUs")
@@ -81,9 +82,9 @@ def main(args):
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='CNN Decoder Training')
+    parser = argparse.ArgumentParser(description='ViT Decoder Training')
 
-    # Training (A100 optimized)
+    # Training
     parser.add_argument('--epochs', type=int, default=50)
     parser.add_argument('--workers', type=int, default=8)
     parser.add_argument('--lr', type=float, default=0.001)
@@ -106,7 +107,10 @@ if __name__ == '__main__':
     parser.add_argument('-y', '--y_ratio', type=float, default=0.0)
 
     # Model
-    parser.add_argument('--large', action='store_true', help='Use larger CNN with ResNet blocks')
+    parser.add_argument('--large', action='store_true', help='Use larger ViT')
+    parser.add_argument('--N_dec', type=int, default=6)
+    parser.add_argument('--d_model', type=int, default=128)
+    parser.add_argument('--h', type=int, default=8)
     parser.add_argument('--dropout', type=float, default=0.2)
     parser.add_argument('--label_smoothing', type=float, default=0.1)
 
@@ -114,7 +118,7 @@ if __name__ == '__main__':
 
     # Setup output dir
     timestamp = datetime.now().strftime('%d_%m_%Y_%H_%M_%S')
-    model_name = 'CNN_Large' if args.large else 'CNN'
+    model_name = 'ViT_Large' if args.large else 'ViT'
     args.path = f'Final_Results/surface/L_{args.code_L}/y_{args.y_ratio}/{model_name}/{timestamp}'
     os.makedirs(args.path, exist_ok=True)
 

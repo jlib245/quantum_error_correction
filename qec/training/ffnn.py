@@ -84,19 +84,19 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='FFNN Decoder Training')
 
     # Training
-    parser.add_argument('--epochs', type=int, default=100)
-    parser.add_argument('--workers', type=int, default=4)
+    parser.add_argument('--epochs', type=int, default=50)
+    parser.add_argument('--workers', type=int, default=8)
     parser.add_argument('--lr', type=float, default=0.001)
-    parser.add_argument('--min_lr', type=float, default=1e-6)
-    parser.add_argument('--batch_size', type=int, default=512)
-    parser.add_argument('--test_batch_size', type=int, default=512)
-    parser.add_argument('--test_samples', type=int, default=10000)
-    parser.add_argument('--samples_per_epoch', type=int, default=100000)
+    parser.add_argument('--min_lr', type=float, default=1e-4)
+    parser.add_argument('--batch_size', type=int, default=2048)
+    parser.add_argument('--test_batch_size', type=int, default=4096)
+    parser.add_argument('--test_samples', type=int, default=50000)
+    parser.add_argument('--samples_per_epoch', type=int, default=2000000)
     parser.add_argument('--seed', type=int, default=42)
     parser.add_argument('--device', type=str, default='auto')
-    parser.add_argument('--patience', type=int, default=4)
+    parser.add_argument('--patience', type=int, default=5)
     parser.add_argument('--min_delta', type=float, default=0.0)
-    parser.add_argument('--val_interval', type=int, default=5)
+    parser.add_argument('--val_interval', type=int, default=1)
     parser.add_argument('--resume', type=str, default=None)
 
     # Code
@@ -108,8 +108,8 @@ if __name__ == '__main__':
     # Model
     parser.add_argument('--large', action='store_true', help='Use larger FFNN')
     parser.add_argument('--hidden_size', type=int, default=256)
-    parser.add_argument('--dropout', type=float, default=0.1)
-    parser.add_argument('--label_smoothing', type=float, default=0.0)
+    parser.add_argument('--dropout', type=float, default=0.2)
+    parser.add_argument('--label_smoothing', type=float, default=0.1)
 
     args = parser.parse_args()
 
