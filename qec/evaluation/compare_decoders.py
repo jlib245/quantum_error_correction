@@ -404,7 +404,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Compare QEC Decoders')
     parser.add_argument('-L', type=int, default=3, help='Code distance')
     parser.add_argument('-p', '--p_errors', type=float, nargs='+',
-                        default=[0.07, 0.08, 0.09, 0.1, 0.11],
+                        default=[0.01, 0.02, 0.03, 0.04, 0.05, 0.06, 0.07, 0.08, 0.09, 0.1, 0.11, 0.12, 0.13],
                         help='Error rates to test')
     parser.add_argument('-n', '--n_shots', type=int, default=10000,
                         help='Number of test shots per error rate')

@@ -560,7 +560,7 @@ def main(args):
 
     from qec.models.transformer import ECC_Transformer
 
-    model = ECC_Transformer(args, dropout=0).to(device)
+    model = ECC_Transformer(args, dropout=args.dropout, label_smoothing=args.label_smoothing).to(device)
 
     # DataParallel for multi-GPU (CUDA only)
     if device.type == 'cuda' and torch.cuda.device_count() > 1:
@@ -799,6 +799,10 @@ if __name__ == '__main__':
     parser.add_argument('--N_dec', type=int, default=6,help='Number of QECCT self-attention modules')
     parser.add_argument('--d_model', type=int, default=128,help='QECCT dimension')
     parser.add_argument('--h', type=int, default=16,help='Number of heads')
+    parser.add_argument('--label_smoothing', type=float, default=0.0,
+                        help='Structured label smoothing factor (0.0 = disabled, recommended: 0.1)')
+    parser.add_argument('--dropout', type=float, default=0.0,
+                        help='Dropout rate (0.0 = disabled, recommended: 0.1)')
 
     # qecc args
     parser.add_argument('--lambda_loss_ber', type=float, default=0.3,help='BER loss regularization')

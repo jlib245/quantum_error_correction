@@ -35,6 +35,69 @@ def clones(module, N):
     return nn.ModuleList([copy.deepcopy(module) for _ in range(N)])
 
 
+class StructuredLabelSmoothing(nn.Module):
+    """
+    Structured Label Smoothing for QEC classification.
+
+    Uses Hamming distance between error classes to distribute
+    smoothing probability - closer classes get more probability mass.
+
+    Class encoding:
+        I = (z=0, x=0) - no error
+        X = (z=0, x=1) - X flip only
+        Z = (z=1, x=0) - Z flip only
+        Y = (z=1, x=1) - both flips (correlated)
+    """
+
+    def __init__(self, smoothing=0.1):
+        super().__init__()
+        self.smoothing = smoothing
+
+        # Hamming distance matrix between classes
+        # I=0, X=1, Z=2, Y=3
+        distance = torch.tensor([
+            [0, 1, 1, 2],  # I: 1-bit to X,Z; 2-bit to Y
+            [1, 0, 2, 1],  # X: 1-bit to I,Y; 2-bit to Z
+            [1, 2, 0, 1],  # Z: 1-bit to I,Y; 2-bit to X
+            [2, 1, 1, 0],  # Y: 1-bit to X,Z; 2-bit to I
+        ], dtype=torch.float)
+
+        # Convert distance to similarity (closer = higher)
+        similarity = torch.exp(-distance)
+
+        # Zero out diagonal and normalize each row
+        for i in range(4):
+            similarity[i, i] = 0
+            row_sum = similarity[i].sum()
+            if row_sum > 0:
+                similarity[i] = similarity[i] / row_sum
+
+        self.register_buffer('similarity', similarity)
+
+    def forward(self, pred, target):
+        """
+        Args:
+            pred: (batch, 4) logits
+            target: (batch,) class indices
+        Returns:
+            loss: scalar
+        """
+        # Create one-hot encoding
+        one_hot = torch.zeros_like(pred).scatter_(1, target.unsqueeze(1), 1.0)
+
+        # Get structured smoothing distribution for each target
+        smooth_dist = self.similarity[target]  # (batch, 4)
+
+        # Combine: (1-ε) * one_hot + ε * structured_smooth
+        smooth_label = one_hot * (1 - self.smoothing) + smooth_dist * self.smoothing
+
+        # Cross entropy with soft labels
+        log_prob = F.log_softmax(pred, dim=-1)
+        loss = -(smooth_label * log_prob).sum(dim=-1).mean()
+
+        return loss
+
+
 class Encoder(nn.Module):
     """Transformer encoder stack."""
 
@@ -293,10 +356,11 @@ class ECC_Transformer(nn.Module):
     to predict error patterns (I, X, Z, Y).
     """
 
-    def __init__(self, args, dropout=0):
+    def __init__(self, args, dropout=0, label_smoothing=0.0):
         super(ECC_Transformer, self).__init__()
         self.args = args
         self.no_g = args.no_g
+        self.label_smoothing = label_smoothing
         code = args.code
         d_model = args.d_model
         h = args.h
@@ -348,7 +412,11 @@ class ECC_Transformer(nn.Module):
         # Output classifier: CLS token output to 4 classes (I, X, Z, Y)
         self.output_classifier = nn.Linear(d_model, 4)
 
-        self.criterion = nn.CrossEntropyLoss()
+        # Loss function: use structured label smoothing if enabled
+        if label_smoothing > 0:
+            self.criterion = StructuredLabelSmoothing(smoothing=label_smoothing)
+        else:
+            self.criterion = nn.CrossEntropyLoss()
 
         # Initialize mask (None for now, can add structure-aware mask later)
         self.src_mask = None
