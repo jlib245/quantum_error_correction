@@ -228,6 +228,12 @@ class QECC_Dataset(data.Dataset):
         while not torch.any(e_full):
              e_full = self.generate_noise(p)
 
+        # Apply augmentation to ERROR first (before syndrome/label calculation)
+        # This ensures LUT is applied correctly to the transformed error
+        if self.augmenter is not None:
+            transform = self.augmenter.get_transform(index)
+            e_full = self.augmenter.transform_error(e_full, transform)
+
         e_z_actual = e_full[:self.n_phys]
         e_x_actual = e_full[self.n_phys:]
 
@@ -246,16 +252,7 @@ class QECC_Dataset(data.Dataset):
 
         true_class_index = (l_z_flip * 2 + l_x_flip).long()
 
-        # Apply augmentation if enabled (transforms both syndrome and label)
-        # Use index-based deterministic selection for reproducibility
-        syndrome_out = syndrome.float()
-        label_out = true_class_index
-        if self.augmenter is not None:
-            transform_idx = index % len(self.augmenter.transform_names)
-            transform = self.augmenter.transform_names[transform_idx]
-            syndrome_out, label_out = self.augmenter(syndrome_out, label=label_out, transform=transform)
-
-        return syndrome_out, label_out.cpu()
+        return syndrome.float(), true_class_index.cpu()
 
     def __len__(self):
         return self.len

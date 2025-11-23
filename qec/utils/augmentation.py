@@ -27,6 +27,29 @@ ZX_SWAP_TRANSFORMS = {'rot90', 'rot270', 'flip_diag', 'flip_anti'}
 LABEL_SWAP_PERM = torch.tensor([0, 2, 1, 3])
 
 
+def get_error_permutation(L: int, transform: str):
+    """
+    Get permutation for error vector (physical qubits).
+
+    Error vector is [e_z, e_x] where each has L*L elements.
+    Returns permutation and whether Z↔X components should be swapped.
+    """
+    qubit_perms = _compute_grid_indices(L)
+    qubit_perm = qubit_perms[transform]
+
+    n_qubits = L * L
+    zx_swap = transform in ZX_SWAP_TRANSFORMS
+
+    if not zx_swap:
+        # [e_z, e_x] -> [e_z[perm], e_x[perm]]
+        full_perm = np.concatenate([qubit_perm, n_qubits + qubit_perm])
+    else:
+        # [e_z, e_x] -> [e_x[perm], e_z[perm]] (swap Z and X)
+        full_perm = np.concatenate([n_qubits + qubit_perm, qubit_perm])
+
+    return full_perm, zx_swap
+
+
 @lru_cache(maxsize=32)
 def _compute_grid_indices(L: int):
     """
@@ -194,12 +217,16 @@ class SyndromeAugmenter:
 
         # Precompute all permutations and swap flags
         self.permutations = {}
+        self.error_permutations = {}
         self.zx_swaps = {}
         for name in self.transform_names:
             if name != 'identity':
                 perm, zx_swap = compute_syndrome_permutation(H_z, H_x, L, name)
                 self.permutations[name] = torch.from_numpy(perm).long()
                 self.zx_swaps[name] = zx_swap
+                # Error permutation for transforming error vectors
+                err_perm, _ = get_error_permutation(L, name)
+                self.error_permutations[name] = torch.from_numpy(err_perm).long()
             else:
                 self.zx_swaps[name] = False
 
@@ -243,6 +270,27 @@ class SyndromeAugmenter:
     def random_transform(self, syndrome, label=None):
         """Apply random augmentation."""
         return self(syndrome, label=label, transform=None)
+
+    def transform_error(self, error, transform):
+        """
+        Transform error vector [e_z, e_x].
+
+        Args:
+            error: Tensor of shape (2*n_qubits,) = [e_z, e_x]
+            transform: Transform name
+
+        Returns:
+            Transformed error vector
+        """
+        if transform == 'identity':
+            return error
+        perm = self.error_permutations[transform]
+        return error[perm]
+
+    def get_transform(self, index):
+        """Get deterministic transform based on index."""
+        transform_idx = index % len(self.transform_names)
+        return self.transform_names[transform_idx]
 
     def get_all_augmentations(self, syndrome, label=None):
         """
