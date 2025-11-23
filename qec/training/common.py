@@ -93,8 +93,42 @@ def generate_correlated_noise(n_qubits, p_total, y_ratio=0.3):
 
 
 # ============================================
-# LUT Generation
+# LUT Generation (Surface Code)
 # ============================================
+
+def create_surface_code_pure_error_lut(L, error_type, device):
+    """
+    Surface code를 위한 Pure error LUT 생성
+    model_path.py의 _surface_cn_coordinates 로직을 참고하여 정확한 stabilizer 구조 사용
+    """
+    device = torch.device('cpu')
+    print(f"Creating Surface code pure error LUT for L={L}, error_type={error_type}")
+    cn_coord = _surface_cn_coordinates(L, error_type)
+    total_syndromes = len(cn_coord)
+    N = L * L
+    lut = {}
+    print(f"Total syndrome bits: {total_syndromes}")
+    for synd_idx in range(total_syndromes):
+        if synd_idx not in cn_coord:
+            continue
+        face_row, face_col = cn_coord[synd_idx]
+        fixed_row = L // 2
+        fixed_col = L // 2
+        if error_type == 'X_only':
+            pure_error = _get_surface_outer_path_x(face_row, face_col, fixed_row, L, device)
+        elif error_type == 'Z_only':
+            pure_error = _get_surface_outer_path_z(face_row, face_col, fixed_col, L, device)
+        else:
+            num_z_stab = sum(1 for coord in cn_coord.values() if (coord[0] + coord[1]) % 2 == 0)
+            if synd_idx < num_z_stab:
+                pure_error = _get_surface_outer_path_x(face_row, face_col, fixed_row, L, device)
+            else:
+                pure_error = _get_surface_outer_path_z(face_row, face_col, fixed_col, L, device)
+
+        lut[synd_idx] = pure_error.cpu()
+    print(f"Pure error LUT created with {len(lut)} entries for error_type='{error_type}'")
+    return {k: v.to(device) for k, v in lut.items()}
+
 
 def _surface_cn_coordinates(L, error_type):
     """Surface code에서 CN index를 grid coordinate로 매핑"""
@@ -163,39 +197,6 @@ def _get_surface_outer_path_z(face_row, face_col, fixed_col, L, device):
     return pure_error
 
 
-def create_surface_code_pure_error_lut(L, error_type, device):
-    """
-    Surface code를 위한 Pure error LUT 생성
-    model_path.py의 _surface_cn_coordinates 로직을 참고하여 정확한 stabilizer 구조 사용
-    """
-    cpu_device = torch.device('cpu')
-    print(f"Creating Surface code pure error LUT for L={L}, error_type={error_type}")
-    cn_coord = _surface_cn_coordinates(L, error_type)
-    total_syndromes = len(cn_coord)
-    lut = {}
-    print(f"Total syndrome bits: {total_syndromes}")
-    for synd_idx in range(total_syndromes):
-        if synd_idx not in cn_coord:
-            continue
-        face_row, face_col = cn_coord[synd_idx]
-        fixed_row = L // 2
-        fixed_col = L // 2
-        if error_type == 'X_only':
-            pure_error = _get_surface_outer_path_x(face_row, face_col, fixed_row, L, cpu_device)
-        elif error_type == 'Z_only':
-            pure_error = _get_surface_outer_path_z(face_row, face_col, fixed_col, L, cpu_device)
-        else:
-            num_z_stab = sum(1 for coord in cn_coord.values() if (coord[0] + coord[1]) % 2 == 0)
-            if synd_idx < num_z_stab:
-                pure_error = _get_surface_outer_path_x(face_row, face_col, fixed_row, L, cpu_device)
-            else:
-                pure_error = _get_surface_outer_path_z(face_row, face_col, fixed_col, L, cpu_device)
-
-        lut[synd_idx] = pure_error.cpu()
-    print(f"Pure error LUT created with {len(lut)} entries for error_type='{error_type}'")
-    return {k: v.to(cpu_device) for k, v in lut.items()}
-
-
 def simple_decoder_C_torch(syndrome_vector, x_error_basis, z_error_basis, H_z, H_x):
     """LUT 기반 simple decoder"""
     device = syndrome_vector.device
@@ -207,10 +208,10 @@ def simple_decoder_C_torch(syndrome_vector, x_error_basis, z_error_basis, H_z, H
 
     for i in range(len(s_z)):
         if s_z[i] == 1 and i in x_error_basis:
-            c_x.bitwise_xor_(x_error_basis[i])
+            c_x.bitwise_xor_(x_error_basis[i].to(dtype=torch.uint8, device=device))
     for i in range(len(s_x)):
         if s_x[i] == 1 and i in z_error_basis:
-            c_z.bitwise_xor_(z_error_basis[i])
+            c_z.bitwise_xor_(z_error_basis[i].to(dtype=torch.uint8, device=device))
 
     return torch.cat([c_z, c_x])
 
