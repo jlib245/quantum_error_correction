@@ -246,12 +246,13 @@ class QECC_Dataset(data.Dataset):
 
         true_class_index = (l_z_flip * 2 + l_x_flip).long()
 
-        # Apply augmentation if enabled
+        # Apply augmentation if enabled (transforms both syndrome and label)
         syndrome_out = syndrome.float()
+        label_out = true_class_index
         if self.augmenter is not None:
-            syndrome_out = self.augmenter.random_transform(syndrome_out)
+            syndrome_out, label_out = self.augmenter.random_transform(syndrome_out, label=label_out)
 
-        return syndrome_out, true_class_index.cpu()
+        return syndrome_out, label_out.cpu()
 
     def __len__(self):
         return self.len

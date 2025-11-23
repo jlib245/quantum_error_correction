@@ -7,10 +7,24 @@ Surface code has D4 symmetry group (square symmetry):
 
 This module provides transformations that preserve the physical meaning
 of syndrome measurements while augmenting training data.
+
+IMPORTANT: Some transforms (rot90, rot270, flip_diag, flip_anti) swap Z↔X stabilizers.
+This also swaps logical X ↔ logical Z, requiring label transformation:
+- Class I (0) → I (0)
+- Class X (1) → Z (2)
+- Class Z (2) → X (1)
+- Class Y (3) → Y (3)
 """
 import numpy as np
 import torch
 from functools import lru_cache
+
+
+# Transforms that swap Z↔X stabilizers (and logical X↔Z)
+ZX_SWAP_TRANSFORMS = {'rot90', 'rot270', 'flip_diag', 'flip_anti'}
+
+# Label permutation when Z↔X swap occurs: I→I, X→Z, Z→X, Y→Y
+LABEL_SWAP_PERM = torch.tensor([0, 2, 1, 3])
 
 
 @lru_cache(maxsize=32)
@@ -63,6 +77,10 @@ def compute_syndrome_permutation(H_z, H_x, L: int, transform: str):
     - s_z has n_z stabilizers, s_x has n_x stabilizers
     - Each stabilizer's position is determined by connected qubits
 
+    Some transforms (rot90, rot270, flip_diag, flip_anti) cause Z↔X swap:
+    - Z stabilizers map to X stabilizer positions and vice versa
+    - syndrome = [s_z, s_x] becomes [s_x', s_z'] after transformation
+
     Args:
         H_z: Z stabilizer parity check matrix (n_z, n_qubits)
         H_x: X stabilizer parity check matrix (n_x, n_qubits)
@@ -71,6 +89,7 @@ def compute_syndrome_permutation(H_z, H_x, L: int, transform: str):
 
     Returns:
         perm: Permutation array for syndrome indices
+        zx_swap: Boolean indicating if Z↔X swap occurred
     """
     qubit_perms = _compute_grid_indices(L)
     qubit_perm = qubit_perms[transform]
@@ -97,29 +116,44 @@ def compute_syndrome_permutation(H_z, H_x, L: int, transform: str):
     x_signatures = {get_stabilizer_signature(H_x, i, np.arange(n_qubits)): i
                     for i in range(n_x)}
 
-    # Find permutation for Z stabilizers
-    z_perm = np.zeros(n_z, dtype=np.int64)
-    for i in range(n_z):
-        sig = get_stabilizer_signature(H_z, i, qubit_perm)
-        if sig in z_signatures:
-            z_perm[i] = z_signatures[sig]
-        else:
-            # Fallback: keep original (shouldn't happen for valid transforms)
-            z_perm[i] = i
+    # Check if Z↔X swap is needed
+    zx_swap = transform in ZX_SWAP_TRANSFORMS
 
-    # Find permutation for X stabilizers
-    x_perm = np.zeros(n_x, dtype=np.int64)
-    for i in range(n_x):
-        sig = get_stabilizer_signature(H_x, i, qubit_perm)
-        if sig in x_signatures:
-            x_perm[i] = x_signatures[sig]
-        else:
-            x_perm[i] = i
+    if not zx_swap:
+        # No swap: Z→Z, X→X
+        z_perm = np.zeros(n_z, dtype=np.int64)
+        for i in range(n_z):
+            sig = get_stabilizer_signature(H_z, i, qubit_perm)
+            z_perm[i] = z_signatures.get(sig, i)
 
-    # Combined permutation for syndrome = [s_z, s_x]
-    full_perm = np.concatenate([z_perm, n_z + x_perm])
+        x_perm = np.zeros(n_x, dtype=np.int64)
+        for i in range(n_x):
+            sig = get_stabilizer_signature(H_x, i, qubit_perm)
+            x_perm[i] = x_signatures.get(sig, i)
 
-    return full_perm
+        # syndrome = [s_z, s_x] -> [s_z[z_perm], s_x[x_perm]]
+        full_perm = np.concatenate([z_perm, n_z + x_perm])
+    else:
+        # Swap: Z→X position, X→Z position
+        # After transform, original Z stabilizers match X signatures and vice versa
+        z_to_x_perm = np.zeros(n_z, dtype=np.int64)
+        for i in range(n_z):
+            sig = get_stabilizer_signature(H_z, i, qubit_perm)
+            z_to_x_perm[i] = x_signatures.get(sig, i)
+
+        x_to_z_perm = np.zeros(n_x, dtype=np.int64)
+        for i in range(n_x):
+            sig = get_stabilizer_signature(H_x, i, qubit_perm)
+            x_to_z_perm[i] = z_signatures.get(sig, i)
+
+        # syndrome = [s_z, s_x]
+        # After swap: new_s_z comes from old s_x, new_s_x comes from old s_z
+        # new_syndrome[i] = old_syndrome[perm[i]]
+        # For positions 0..n_z-1 (new s_z): take from old s_x at x_to_z_perm
+        # For positions n_z..n_z+n_x-1 (new s_x): take from old s_z at z_to_x_perm
+        full_perm = np.concatenate([n_z + x_to_z_perm, z_to_x_perm])
+
+    return full_perm, zx_swap
 
 
 class SyndromeAugmenter:
@@ -127,6 +161,7 @@ class SyndromeAugmenter:
     Efficient syndrome augmentation for training.
 
     Precomputes all permutation indices at initialization.
+    Handles Z↔X swap and corresponding label transformation.
     """
 
     # Available transforms (D4 group)
@@ -157,52 +192,73 @@ class SyndromeAugmenter:
         else:
             self.transform_names = transforms
 
-        # Precompute all permutations
+        # Precompute all permutations and swap flags
         self.permutations = {}
+        self.zx_swaps = {}
         for name in self.transform_names:
             if name != 'identity':
-                perm = compute_syndrome_permutation(H_z, H_x, L, name)
+                perm, zx_swap = compute_syndrome_permutation(H_z, H_x, L, name)
                 self.permutations[name] = torch.from_numpy(perm).long()
+                self.zx_swaps[name] = zx_swap
+            else:
+                self.zx_swaps[name] = False
 
-    def __call__(self, syndrome, transform=None):
+    def __call__(self, syndrome, label=None, transform=None):
         """
-        Apply augmentation to syndrome.
+        Apply augmentation to syndrome and optionally label.
 
         Args:
             syndrome: Tensor of shape (syndrome_len,) or (batch, syndrome_len)
+            label: Optional label tensor (class index 0-3)
             transform: Specific transform name, or None for random
 
         Returns:
-            Augmented syndrome tensor
+            If label is None: augmented syndrome tensor
+            If label is provided: (augmented_syndrome, transformed_label)
         """
         if transform is None:
             transform = np.random.choice(self.transform_names)
 
+        # Transform syndrome
         if transform == 'identity':
-            return syndrome
-
-        perm = self.permutations[transform]
-
-        if syndrome.dim() == 1:
-            return syndrome[perm]
+            aug_syndrome = syndrome
         else:
-            return syndrome[:, perm]
+            perm = self.permutations[transform]
+            if syndrome.dim() == 1:
+                aug_syndrome = syndrome[perm]
+            else:
+                aug_syndrome = syndrome[:, perm]
 
-    def random_transform(self, syndrome):
+        # Transform label if provided
+        if label is not None:
+            if self.zx_swaps[transform]:
+                # X↔Z swap: I→I, X→Z, Z→X, Y→Y
+                aug_label = LABEL_SWAP_PERM[label]
+            else:
+                aug_label = label
+            return aug_syndrome, aug_label
+
+        return aug_syndrome
+
+    def random_transform(self, syndrome, label=None):
         """Apply random augmentation."""
-        return self(syndrome, transform=None)
+        return self(syndrome, label=label, transform=None)
 
-    def get_all_augmentations(self, syndrome):
+    def get_all_augmentations(self, syndrome, label=None):
         """
         Get all augmented versions of a syndrome.
 
         Useful for test-time augmentation (TTA).
 
         Returns:
-            List of (transform_name, augmented_syndrome) tuples
+            List of (transform_name, augmented_syndrome, augmented_label) tuples
         """
         results = []
         for name in self.transform_names:
-            aug = self(syndrome, transform=name)
-            results.append((name, aug))
+            result = self(syndrome, label=label, transform=name)
+            if label is not None:
+                aug_syn, aug_lbl = result
+                results.append((name, aug_syn, aug_lbl))
+            else:
+                results.append((name, result))
         return results
