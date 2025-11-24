@@ -71,6 +71,15 @@ def main(args):
             dropout=args.dropout,
             label_smoothing=args.label_smoothing
         ).to(device)
+    elif args.model_type == 'diamond_attn':
+        from qec.models.diamond_cnn import ECC_DiamondCNN_Attention
+        model = ECC_DiamondCNN_Attention(
+            args,
+            x_error_lut=x_error_basis_dict,
+            z_error_lut=z_error_basis_dict,
+            dropout=args.dropout,
+            label_smoothing=args.label_smoothing
+        ).to(device)
     else:
         raise ValueError(f"Unknown model type: {args.model_type}")
 
@@ -144,8 +153,8 @@ if __name__ == '__main__':
 
     # Model
     parser.add_argument('--model_type', type=str, default='qubit_centric',
-                        choices=['qubit_centric', 'lut_residual', 'lut_concat', 'diamond', 'diamond_deep'],
-                        help='Model type: qubit_centric, lut_residual, lut_concat, diamond, diamond_deep')
+                        choices=['qubit_centric', 'lut_residual', 'lut_concat', 'diamond', 'diamond_deep', 'diamond_attn'],
+                        help='Model type: qubit_centric, lut_residual, lut_concat, diamond, diamond_deep, diamond_attn')
     parser.add_argument('--d_model', type=int, default=128)
     parser.add_argument('--dropout', type=float, default=0.2)
     parser.add_argument('--label_smoothing', type=float, default=0.1)

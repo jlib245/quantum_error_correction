@@ -373,3 +373,149 @@ class ECC_DiamondCNN_Deep(nn.Module):
 
     def loss(self, pred, true_label):
         return self.criterion(pred, true_label)
+
+
+class SpatialAttention(nn.Module):
+    """Spatial self-attention for 2D feature maps."""
+
+    def __init__(self, dim, num_heads=4):
+        super().__init__()
+        self.num_heads = num_heads
+        self.head_dim = dim // num_heads
+        self.scale = self.head_dim ** -0.5
+
+        self.qkv = nn.Conv2d(dim, dim * 3, 1)
+        self.proj = nn.Conv2d(dim, dim, 1)
+
+    def forward(self, x):
+        B, C, H, W = x.shape
+
+        # QKV projection
+        qkv = self.qkv(x).reshape(B, 3, self.num_heads, self.head_dim, H * W)
+        q, k, v = qkv[:, 0], qkv[:, 1], qkv[:, 2]  # (B, heads, head_dim, HW)
+
+        # Attention
+        q = q.permute(0, 1, 3, 2)  # (B, heads, HW, head_dim)
+        k = k.permute(0, 1, 2, 3)  # (B, heads, head_dim, HW)
+        v = v.permute(0, 1, 3, 2)  # (B, heads, HW, head_dim)
+
+        attn = (q @ k) * self.scale  # (B, heads, HW, HW)
+        attn = attn.softmax(dim=-1)
+
+        out = (attn @ v)  # (B, heads, HW, head_dim)
+        out = out.permute(0, 1, 3, 2).reshape(B, C, H, W)
+
+        return self.proj(out)
+
+
+class DilatedResBlock(nn.Module):
+    """Residual block with dilated convolution for larger receptive field."""
+
+    def __init__(self, in_ch, out_ch, dilation=1):
+        super().__init__()
+        self.conv1 = nn.Conv2d(in_ch, out_ch, 3, padding=dilation, dilation=dilation)
+        self.bn1 = nn.BatchNorm2d(out_ch)
+        self.conv2 = nn.Conv2d(out_ch, out_ch, 3, padding=dilation, dilation=dilation)
+        self.bn2 = nn.BatchNorm2d(out_ch)
+        self.shortcut = nn.Conv2d(in_ch, out_ch, 1) if in_ch != out_ch else nn.Identity()
+
+    def forward(self, x):
+        identity = self.shortcut(x)
+        out = F.gelu(self.bn1(self.conv1(x)))
+        out = self.bn2(self.conv2(out))
+        return F.gelu(out + identity)
+
+
+class ECC_DiamondCNN_Attention(nn.Module):
+    """
+    Diamond CNN with Dilated Convolutions + Self-Attention.
+
+    Key improvements:
+    1. 2x2 conv captures local diamond pattern (Q-Z-X-Q)
+    2. Dilated convs expand receptive field for error chains
+    3. Self-attention captures global syndrome correlations
+    4. Multi-scale feature fusion
+    """
+
+    def __init__(self, args, x_error_lut=None, z_error_lut=None,
+                 dropout=0.1, label_smoothing=0.0):
+        super().__init__()
+        self.args = args
+        self.L = args.code_L
+
+        code = args.code
+        H_z = code.H_z.cpu().numpy() if torch.is_tensor(code.H_z) else code.H_z
+        H_x = code.H_x.cpu().numpy() if torch.is_tensor(code.H_x) else code.H_x
+
+        # Grid builder with LUT
+        self.grid_builder = DiamondGridBuilder(
+            self.L, H_z, H_x,
+            x_error_lut=x_error_lut,
+            z_error_lut=z_error_lut
+        )
+
+        d_model = getattr(args, 'd_model', 128)
+
+        # Stage 1: Local diamond pattern extraction (2x2 conv)
+        self.stem = nn.Sequential(
+            nn.Conv2d(4, 64, kernel_size=2, stride=1, padding=1),
+            nn.BatchNorm2d(64),
+            nn.GELU(),
+        )
+
+        # Stage 2: Multi-scale dilated convolutions
+        self.dilated_blocks = nn.ModuleList([
+            DilatedResBlock(64, 64, dilation=1),    # RF: 3x3
+            DilatedResBlock(64, 128, dilation=2),   # RF: 7x7
+            DilatedResBlock(128, 128, dilation=4),  # RF: 15x15 (covers full grid)
+        ])
+
+        # Stage 3: Self-attention for global correlation
+        self.attn = SpatialAttention(128, num_heads=4)
+        self.attn_norm = nn.BatchNorm2d(128)
+
+        # Stage 4: Final projection
+        self.final_conv = nn.Sequential(
+            nn.Conv2d(128, d_model, 1),
+            nn.BatchNorm2d(d_model),
+            nn.GELU(),
+        )
+
+        # Classifier head
+        self.head = nn.Sequential(
+            nn.AdaptiveAvgPool2d(1),
+            nn.Flatten(),
+            nn.Linear(d_model, d_model // 2),
+            nn.GELU(),
+            nn.Dropout(dropout),
+            nn.Linear(d_model // 2, 4)
+        )
+
+        # Loss
+        if label_smoothing > 0:
+            self.criterion = nn.CrossEntropyLoss(label_smoothing=label_smoothing)
+        else:
+            self.criterion = nn.CrossEntropyLoss()
+
+    def forward(self, syndrome):
+        # Build rotated grid with LUT predictions
+        x = self.grid_builder(syndrome)  # (B, 4, H, W)
+
+        # Local pattern extraction
+        x = self.stem(x)
+
+        # Multi-scale dilated convolutions
+        for block in self.dilated_blocks:
+            x = block(x)
+
+        # Global attention
+        x = x + self.attn(self.attn_norm(x))
+
+        # Final projection
+        x = self.final_conv(x)
+
+        # Classifier
+        return self.head(x)
+
+    def loss(self, pred, true_label):
+        return self.criterion(pred, true_label)
