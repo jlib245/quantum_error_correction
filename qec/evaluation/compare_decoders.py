@@ -187,6 +187,24 @@ def evaluate_nn_model(model_path, model_type, Hx, Hz, Lx, Lz, p_errors,
                 from qec.models.qubit_centric import ECC_LUT_Concat
                 args.code_L = int(np.sqrt(Hx.shape[1]))
                 model = ECC_LUT_Concat(args, x_error_basis, z_error_basis, dropout=0)
+            elif model_type.upper() == 'DIAMOND':
+                from qec.models.diamond_cnn import ECC_DiamondCNN
+                args.code_L = int(np.sqrt(Hx.shape[1]))
+                model = ECC_DiamondCNN(
+                    args,
+                    x_error_lut=x_error_basis,
+                    z_error_lut=z_error_basis,
+                    dropout=0
+                )
+            elif model_type.upper() == 'DIAMOND_DEEP':
+                from qec.models.diamond_cnn import ECC_DiamondCNN_Deep
+                args.code_L = int(np.sqrt(Hx.shape[1]))
+                model = ECC_DiamondCNN_Deep(
+                    args,
+                    x_error_lut=x_error_basis,
+                    z_error_lut=z_error_basis,
+                    dropout=0
+                )
             else:
                 logging.error(f"Unknown model type: {model_type}")
                 return None
@@ -517,6 +535,26 @@ def main(args):
         if lut_concat_results:
             all_results['LUT_Concat'] = lut_concat_results
 
+    # Evaluate Diamond CNN
+    if args.diamond_model:
+        diamond_results = evaluate_nn_model(
+            args.diamond_model, 'DIAMOND',
+            Hx, Hz, Lx, Lz, args.p_errors,
+            n_shots=args.n_shots, y_ratio=args.y_ratio, device=device
+        )
+        if diamond_results:
+            all_results['Diamond'] = diamond_results
+
+    # Evaluate Diamond Deep CNN
+    if args.diamond_deep_model:
+        diamond_deep_results = evaluate_nn_model(
+            args.diamond_deep_model, 'DIAMOND_DEEP',
+            Hx, Hz, Lx, Lz, args.p_errors,
+            n_shots=args.n_shots, y_ratio=args.y_ratio, device=device
+        )
+        if diamond_deep_results:
+            all_results['Diamond_Deep'] = diamond_deep_results
+
     # Print comparison
     if all_results:
         print_comparison_table(all_results)
@@ -558,6 +596,10 @@ if __name__ == '__main__':
                         help='Path to trained LUT_Residual model')
     parser.add_argument('--lut_concat_model', type=str, default=None,
                         help='Path to trained LUT_Concat model')
+    parser.add_argument('--diamond_model', type=str, default=None,
+                        help='Path to trained Diamond CNN model')
+    parser.add_argument('--diamond_deep_model', type=str, default=None,
+                        help='Path to trained Diamond Deep CNN model')
 
     args = parser.parse_args()
     main(args)
