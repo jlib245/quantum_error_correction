@@ -79,34 +79,60 @@ class DiamondGridBuilder(nn.Module):
         self._precompute_mappings()
 
     def _precompute_mappings(self):
-        """좌표 변환 매핑 미리 계산"""
+        """좌표 변환 매핑 미리 계산 (vectorized indexing용)"""
         L = self.L
 
         # Qubit positions: original (2i+1, 2j+1) for i,j in [0, L-1]
-        self.qubit_orig_coords = []
-        self.qubit_new_coords = []
+        qubit_rows = []
+        qubit_cols = []
+        qubit_src_indices = []
         for i in range(L):
             for j in range(L):
                 old_r, old_c = 2*i + 1, 2*j + 1
                 new_r, new_c = self._rotate_45(old_r, old_c)
-                self.qubit_orig_coords.append((old_r, old_c))
-                self.qubit_new_coords.append((new_r, new_c))
+                if new_r < self.new_size and new_c < self.new_size:
+                    qubit_rows.append(new_r)
+                    qubit_cols.append(new_c)
+                    qubit_src_indices.append(i * L + j)
 
         # Z-stabilizer positions (from H_z)
-        self.z_stab_new_coords = []
+        z_stab_rows = []
+        z_stab_cols = []
+        z_stab_src_indices = []
         for stab_idx in range(self.n_z):
             qubits = torch.where(self.H_z[stab_idx] == 1)[0].tolist()
             old_r, old_c = self._get_stabilizer_position(qubits, 'Z')
             new_r, new_c = self._rotate_45(old_r, old_c)
-            self.z_stab_new_coords.append((new_r, new_c))
+            if new_r < self.new_size and new_c < self.new_size:
+                z_stab_rows.append(new_r)
+                z_stab_cols.append(new_c)
+                z_stab_src_indices.append(stab_idx)
 
         # X-stabilizer positions (from H_x)
-        self.x_stab_new_coords = []
+        x_stab_rows = []
+        x_stab_cols = []
+        x_stab_src_indices = []
         for stab_idx in range(self.n_x):
             qubits = torch.where(self.H_x[stab_idx] == 1)[0].tolist()
             old_r, old_c = self._get_stabilizer_position(qubits, 'X')
             new_r, new_c = self._rotate_45(old_r, old_c)
-            self.x_stab_new_coords.append((new_r, new_c))
+            if new_r < self.new_size and new_c < self.new_size:
+                x_stab_rows.append(new_r)
+                x_stab_cols.append(new_c)
+                x_stab_src_indices.append(stab_idx)
+
+        # Register as buffers for vectorized indexing
+        self.register_buffer('qubit_rows', torch.tensor(qubit_rows, dtype=torch.long))
+        self.register_buffer('qubit_cols', torch.tensor(qubit_cols, dtype=torch.long))
+        self.register_buffer('qubit_src_idx', torch.tensor(qubit_src_indices, dtype=torch.long))
+
+        self.register_buffer('z_stab_rows', torch.tensor(z_stab_rows, dtype=torch.long))
+        self.register_buffer('z_stab_cols', torch.tensor(z_stab_cols, dtype=torch.long))
+        self.register_buffer('z_stab_src_idx', torch.tensor(z_stab_src_indices, dtype=torch.long))
+
+        self.register_buffer('x_stab_rows', torch.tensor(x_stab_rows, dtype=torch.long))
+        self.register_buffer('x_stab_cols', torch.tensor(x_stab_cols, dtype=torch.long))
+        self.register_buffer('x_stab_src_idx', torch.tensor(x_stab_src_indices, dtype=torch.long))
 
     def _get_stabilizer_position(self, qubits, stab_type):
         """Stabilizer의 original grid 위치 계산"""
@@ -149,6 +175,7 @@ class DiamondGridBuilder(nn.Module):
     def forward(self, syndrome):
         """
         Syndrome을 45도 회전된 grid로 변환 (LUT prediction 포함).
+        Vectorized implementation for speed.
 
         Args:
             syndrome: (B, n_z + n_x) - [s_z, s_x] concatenated
@@ -180,25 +207,18 @@ class DiamondGridBuilder(nn.Module):
         # Initialize rotated grid with incoherent value (-0.5)
         grid = torch.full((B, 4, self.new_size, self.new_size), -0.5, device=device)
 
+        # Vectorized assignment using advanced indexing
         # Channel 0: LUT predicted X errors at Q positions
-        for q_idx, (new_r, new_c) in enumerate(self.qubit_new_coords):
-            if new_r < self.new_size and new_c < self.new_size:
-                grid[:, 0, new_r, new_c] = lut_x_error[:, q_idx]
+        grid[:, 0, self.qubit_rows, self.qubit_cols] = lut_x_error[:, self.qubit_src_idx]
 
         # Channel 1: LUT predicted Z errors at Q positions
-        for q_idx, (new_r, new_c) in enumerate(self.qubit_new_coords):
-            if new_r < self.new_size and new_c < self.new_size:
-                grid[:, 1, new_r, new_c] = lut_z_error[:, q_idx]
+        grid[:, 1, self.qubit_rows, self.qubit_cols] = lut_z_error[:, self.qubit_src_idx]
 
         # Channel 2: Z-syndrome values
-        for stab_idx, (new_r, new_c) in enumerate(self.z_stab_new_coords):
-            if new_r < self.new_size and new_c < self.new_size:
-                grid[:, 2, new_r, new_c] = s_z[:, stab_idx]
+        grid[:, 2, self.z_stab_rows, self.z_stab_cols] = s_z[:, self.z_stab_src_idx]
 
         # Channel 3: X-syndrome values
-        for stab_idx, (new_r, new_c) in enumerate(self.x_stab_new_coords):
-            if new_r < self.new_size and new_c < self.new_size:
-                grid[:, 3, new_r, new_c] = s_x[:, stab_idx]
+        grid[:, 3, self.x_stab_rows, self.x_stab_cols] = s_x[:, self.x_stab_src_idx]
 
         return grid
 
