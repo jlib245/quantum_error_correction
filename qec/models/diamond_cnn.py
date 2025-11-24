@@ -174,18 +174,20 @@ class DiamondGridBuilder(nn.Module):
 
     def forward(self, syndrome):
         """
-        Syndrome을 45도 회전된 grid로 변환 (LUT prediction 포함).
+        Syndrome을 45도 회전된 grid로 변환 (LUT prediction + aggregated syndrome 포함).
         Vectorized implementation for speed.
 
         Args:
             syndrome: (B, n_z + n_x) - [s_z, s_x] concatenated
 
         Returns:
-            grid: (B, 4, H, W) - 4 channels:
+            grid: (B, 6, H, W) - 6 channels:
                 Ch0: LUT predicted X errors at Q positions
                 Ch1: LUT predicted Z errors at Q positions
                 Ch2: Z syndrome at Z positions
                 Ch3: X syndrome at X positions
+                Ch4: H_z.T @ s_z (aggregated Z syndrome count) at Q positions
+                Ch5: H_x.T @ s_x (aggregated X syndrome count) at Q positions
         """
         B = syndrome.shape[0]
         device = syndrome.device
@@ -204,8 +206,12 @@ class DiamondGridBuilder(nn.Module):
         else:
             lut_z_error = torch.zeros(B, self.n_qubits, device=device)
 
+        # Aggregated syndrome counts: H.T @ syndrome (how many stabilizers point to each qubit)
+        z_count = torch.matmul(s_z, self.H_z)  # (B, n_qubits)
+        x_count = torch.matmul(s_x, self.H_x)  # (B, n_qubits)
+
         # Initialize rotated grid with incoherent value (-0.5)
-        grid = torch.full((B, 4, self.new_size, self.new_size), -0.5, device=device)
+        grid = torch.full((B, 6, self.new_size, self.new_size), -0.5, device=device)
 
         # Vectorized assignment using advanced indexing
         # Channel 0: LUT predicted X errors at Q positions
@@ -219,6 +225,12 @@ class DiamondGridBuilder(nn.Module):
 
         # Channel 3: X-syndrome values
         grid[:, 3, self.x_stab_rows, self.x_stab_cols] = s_x[:, self.x_stab_src_idx]
+
+        # Channel 4: Aggregated Z syndrome count at Q positions
+        grid[:, 4, self.qubit_rows, self.qubit_cols] = z_count[:, self.qubit_src_idx]
+
+        # Channel 5: Aggregated X syndrome count at Q positions
+        grid[:, 5, self.qubit_rows, self.qubit_cols] = x_count[:, self.qubit_src_idx]
 
         return grid
 
@@ -250,8 +262,8 @@ class ECC_DiamondCNN(nn.Module):
 
         d_model = getattr(args, 'd_model', 128)
 
-        # CNN with 2x2 conv for diamond pattern (4 channels input)
-        self.conv1 = nn.Conv2d(4, 64, kernel_size=2, stride=1, padding=0)
+        # CNN with 2x2 conv for diamond pattern (6 channels input)
+        self.conv1 = nn.Conv2d(6, 64, kernel_size=2, stride=1, padding=0)
         self.bn1 = nn.BatchNorm2d(64)
 
         self.conv2 = nn.Conv2d(64, 128, kernel_size=2, stride=1, padding=0)
@@ -317,9 +329,9 @@ class ECC_DiamondCNN_Deep(nn.Module):
 
         d_model = getattr(args, 'd_model', 128)
 
-        # Initial 2x2 conv for diamond pattern (4 channels input)
+        # Initial 2x2 conv for diamond pattern (6 channels input)
         self.stem = nn.Sequential(
-            nn.Conv2d(4, 64, kernel_size=2, stride=1, padding=1),
+            nn.Conv2d(6, 64, kernel_size=2, stride=1, padding=1),
             nn.BatchNorm2d(64),
             nn.GELU(),
         )
@@ -456,9 +468,9 @@ class ECC_DiamondCNN_Attention(nn.Module):
 
         d_model = getattr(args, 'd_model', 128)
 
-        # Stage 1: Local diamond pattern extraction (2x2 conv)
+        # Stage 1: Local diamond pattern extraction (2x2 conv, 6 channels input)
         self.stem = nn.Sequential(
-            nn.Conv2d(4, 64, kernel_size=2, stride=1, padding=1),
+            nn.Conv2d(6, 64, kernel_size=2, stride=1, padding=1),
             nn.BatchNorm2d(64),
             nn.GELU(),
         )
