@@ -113,7 +113,7 @@ if __name__ == '__main__':
     parser.add_argument('--samples_per_epoch', type=int, default=2000000)
     parser.add_argument('--seed', type=int, default=42)
     parser.add_argument('--device', type=str, default='auto')
-    parser.add_argument('--patience', type=int, default=5)
+    parser.add_argument('--patience', type=int, default=3)
     parser.add_argument('--min_delta', type=float, default=0.0)
     parser.add_argument('--val_interval', type=int, default=1)
     parser.add_argument('--resume', type=str, default=None)

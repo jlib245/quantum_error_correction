@@ -48,6 +48,13 @@ def setup_logging(log_dir):
     return log_file
 
 
+def _reset_seed_for_idx(idx, base_seed=20_000_000):
+    """Reset random seed based on index for reproducibility across decoders."""
+    seed = base_seed + idx
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+
+
 def evaluate_mwpm(Hx, Hz, Lx, Lz, p_errors, n_shots=10000, y_ratio=0.0):
     """Evaluate MWPM decoder."""
     logging.info("\n" + "="*60)
@@ -57,7 +64,8 @@ def evaluate_mwpm(Hx, Hz, Lx, Lz, p_errors, n_shots=10000, y_ratio=0.0):
     decoder = MWPM_Decoder(Hx, Hz, Lx, Lz)
     results = {}
 
-    for p in p_errors:
+    for idx, p in enumerate(p_errors):
+        _reset_seed_for_idx(idx)  # Reset seed for each p index
         logging.info(f"\nTesting p={p:.3f}...")
         result = decoder.evaluate(p, n_shots=n_shots, y_ratio=y_ratio, verbose=True)
         results[p] = result
@@ -199,7 +207,8 @@ def evaluate_nn_model(model_path, model_type, Hx, Hz, Lx, Lz, p_errors,
     n_phys = Hx.shape[1]
 
     with torch.no_grad():
-        for p in p_errors:
+        for idx, p in enumerate(p_errors):
+            _reset_seed_for_idx(idx)  # Reset seed for each p index
             logging.info(f"\nTesting p={p:.3f}...")
 
             logical_error_count = 0
