@@ -207,8 +207,9 @@ class DiamondGridBuilder(nn.Module):
             lut_z_error = torch.zeros(B, self.n_qubits, device=device)
 
         # Aggregated syndrome counts: H.T @ syndrome (how many stabilizers point to each qubit)
-        z_count = torch.matmul(s_z, self.H_z)  # (B, n_qubits)
-        x_count = torch.matmul(s_x, self.H_x)  # (B, n_qubits)
+        # Normalized to 0~1 range (max 4 stabilizers can point to a qubit)
+        z_count = torch.matmul(s_z, self.H_z) / 4.0  # (B, n_qubits)
+        x_count = torch.matmul(s_x, self.H_x) / 4.0  # (B, n_qubits)
 
         # Initialize rotated grid with incoherent value (-0.5)
         grid = torch.full((B, 6, self.new_size, self.new_size), -0.5, device=device)
