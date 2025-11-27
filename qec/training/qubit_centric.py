@@ -150,6 +150,8 @@ if __name__ == '__main__':
     parser.add_argument('-p', '--p_errors', type=float, nargs='+',
                         default=[0.07, 0.08, 0.09, 0.10, 0.11, 0.12, 0.13])
     parser.add_argument('-y', '--y_ratio', type=float, default=0.0)
+    parser.add_argument('--y_ratios', type=float, nargs='+', default=None,
+                        help='Mixed y-ratios for training (e.g., 0.0 0.1 0.2 0.3). Overrides y_ratio if set.')
 
     # Model
     parser.add_argument('--model_type', type=str, default='qubit_centric',
@@ -164,7 +166,11 @@ if __name__ == '__main__':
     # Setup output dir
     timestamp = datetime.now().strftime('%d_%m_%Y_%H_%M_%S')
     model_name = args.model_type.upper()
-    args.path = f'Final_Results/surface/L_{args.code_L}/y_{args.y_ratio}/{model_name}/{timestamp}'
+    if args.y_ratios:
+        y_str = 'mixed_' + '_'.join(str(y) for y in args.y_ratios)
+    else:
+        y_str = str(args.y_ratio)
+    args.path = f'Final_Results/surface/L_{args.code_L}/y_{y_str}/{model_name}/{timestamp}'
     os.makedirs(args.path, exist_ok=True)
 
     # Logging

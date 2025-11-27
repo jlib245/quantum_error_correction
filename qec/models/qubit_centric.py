@@ -306,11 +306,11 @@ class ECC_LUT_Concat(nn.Module):
         s_z = syndrome[:, :self.n_z]
         s_x = syndrome[:, self.n_z:]
 
-        # Real qubit count
-        real_z_count = torch.matmul(s_z, self.H_z)
-        real_x_count = torch.matmul(s_x, self.H_x)
+        # Real qubit count (normalized to 0~1 range)
+        real_z_count = torch.matmul(s_z, self.H_z) / 4.0
+        real_x_count = torch.matmul(s_x, self.H_x) / 4.0
 
-        # LUT lookup
+        # LUT lookup (already 0 or 1)
         lut_e_z, lut_e_x = self._batch_lut_lookup(syndrome)
 
         # Reshape to grid

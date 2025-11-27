@@ -268,8 +268,14 @@ class QECC_Dataset(data.Dataset):
         self.z_error_basis_dict = z_error_basis
 
     def generate_noise(self, p):
-        if self.args.y_ratio > 0:
-            e_x_np, e_z_np = generate_correlated_noise(self.n_phys, p, self.args.y_ratio)
+        # Mixed y-ratio 지원: y_ratios 리스트가 있으면 랜덤 선택
+        if hasattr(self.args, 'y_ratios') and self.args.y_ratios:
+            y_ratio = random.choice(self.args.y_ratios)
+        else:
+            y_ratio = getattr(self.args, 'y_ratio', 0.0)
+
+        if y_ratio > 0:
+            e_x_np, e_z_np = generate_correlated_noise(self.n_phys, p, y_ratio)
         else:
             rand_vals = np.random.rand(self.n_phys)
             e_z_np = (rand_vals < p/3)
