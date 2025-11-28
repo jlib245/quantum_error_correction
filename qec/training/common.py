@@ -247,13 +247,21 @@ def load_surface_code(L, device):
 # ============================================
 
 class QECC_Dataset(data.Dataset):
-    """Common dataset for QEC training."""
+    """Common dataset for QEC training.
+
+    Noise models:
+    - Code Capacity: p_meas=0 (default) - only data qubit errors
+    - Phenomenological: p_meas>0 - data qubit errors + syndrome measurement errors
+    """
 
     def __init__(self, code, x_error_basis, z_error_basis, ps, length, args, seed_offset=0):
         self.ps = ps
         self.length = length
         self.args = args
         self.seed_offset = seed_offset  # Train: 0, Test: large number
+
+        # Syndrome measurement error probability (0 = code capacity, >0 = phenomenological)
+        self.p_meas = getattr(args, 'p_meas', 0.0)
 
         self.device = next(iter(x_error_basis.values())).device if x_error_basis else torch.device("cpu")
 
@@ -263,6 +271,7 @@ class QECC_Dataset(data.Dataset):
         self.L_x = code.L_x.to(self.device)
 
         self.n_phys = self.H_z.shape[1]
+        self.n_syndrome = self.H_z.shape[0] + self.H_x.shape[0]
 
         self.x_error_basis_dict = x_error_basis
         self.z_error_basis_dict = z_error_basis
@@ -306,6 +315,13 @@ class QECC_Dataset(data.Dataset):
         s_z_actual = (self.H_z.float() @ e_x_actual.float()) % 2
         s_x_actual = (self.H_x.float() @ e_z_actual.float()) % 2
         syndrome = torch.cat([s_z_actual, s_x_actual])
+
+        # Add syndrome measurement error (phenomenological noise model)
+        if self.p_meas > 0:
+            meas_error = torch.from_numpy(
+                (np.random.rand(self.n_syndrome) < self.p_meas).astype(np.float32)
+            ).to(self.device)
+            syndrome = (syndrome + meas_error) % 2
 
         pure_error_C = simple_decoder_C_torch(syndrome.type(torch.uint8), self.x_error_basis_dict, self.z_error_basis_dict, self.H_z, self.H_x)
         l_physical = pure_error_C.long() ^ e_full.long()

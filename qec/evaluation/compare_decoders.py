@@ -205,6 +205,14 @@ def evaluate_nn_model(model_path, model_type, Hx, Hz, Lx, Lz, p_errors,
                     z_error_lut=z_error_basis,
                     dropout=0
                 )
+            elif model_type.upper() == 'VIT_QUBIT_CENTRIC':
+                from qec.models.vit import ECC_ViT_QubitCentric
+                args.code_L = int(np.sqrt(Hx.shape[1]))
+                model = ECC_ViT_QubitCentric(args, dropout=0)
+            elif model_type.upper() == 'VIT_LUT_CONCAT':
+                from qec.models.vit import ECC_ViT_LUT_Concat
+                args.code_L = int(np.sqrt(Hx.shape[1]))
+                model = ECC_ViT_LUT_Concat(args, x_error_basis, z_error_basis, dropout=0)
             else:
                 logging.error(f"Unknown model type: {model_type}")
                 return None

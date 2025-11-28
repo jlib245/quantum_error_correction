@@ -1,8 +1,17 @@
 """
 Data module for quantum error correction codes.
 
-This module contains the codes_db directory with pre-computed
-quantum error correction code matrices.
+This module contains:
+- codes_db: Pre-computed quantum error correction code matrices
+- circuit_level: Circuit-level noise model using Stim
 """
 
-__all__ = []
+from qec.data.circuit_level import (
+    create_circuit_level_surface_code,
+    CircuitLevelDataset,
+)
+
+__all__ = [
+    'create_circuit_level_surface_code',
+    'CircuitLevelDataset',
+]

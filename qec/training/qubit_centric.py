@@ -80,6 +80,17 @@ def main(args):
             dropout=args.dropout,
             label_smoothing=args.label_smoothing
         ).to(device)
+    elif args.model_type == 'vit_qubit_centric':
+        from qec.models.vit import ECC_ViT_QubitCentric
+        model = ECC_ViT_QubitCentric(
+            args, dropout=args.dropout, label_smoothing=args.label_smoothing
+        ).to(device)
+    elif args.model_type == 'vit_lut_concat':
+        from qec.models.vit import ECC_ViT_LUT_Concat
+        model = ECC_ViT_LUT_Concat(
+            args, x_error_basis_dict, z_error_basis_dict,
+            dropout=args.dropout, label_smoothing=args.label_smoothing
+        ).to(device)
     else:
         raise ValueError(f"Unknown model type: {args.model_type}")
 
@@ -92,6 +103,10 @@ def main(args):
 
     logging.info(f'Code L={args.code_L}')
     logging.info(f'Model type: {args.model_type}')
+    if args.p_meas > 0:
+        logging.info(f'Noise model: Phenomenological (p_meas={args.p_meas})')
+    else:
+        logging.info(f'Noise model: Code Capacity (perfect syndrome measurement)')
     logging.info(model)
     logging.info(f'Parameters: {sum(p.numel() for p in model.parameters()):,}')
 
@@ -152,12 +167,16 @@ if __name__ == '__main__':
     parser.add_argument('-y', '--y_ratio', type=float, default=0.0)
     parser.add_argument('--y_ratios', type=float, nargs='+', default=None,
                         help='Mixed y-ratios for training (e.g., 0.0 0.1 0.2 0.3). Overrides y_ratio if set.')
+    parser.add_argument('--p_meas', type=float, default=0.0,
+                        help='Syndrome measurement error probability. 0=code capacity (default), >0=phenomenological')
 
     # Model
     parser.add_argument('--model_type', type=str, default='qubit_centric',
-                        choices=['qubit_centric', 'lut_residual', 'lut_concat', 'diamond', 'diamond_deep', 'diamond_attn'],
-                        help='Model type: qubit_centric, lut_residual, lut_concat, diamond, diamond_deep, diamond_attn')
+                        choices=['qubit_centric', 'lut_residual', 'lut_concat', 'diamond', 'diamond_deep', 'diamond_attn', 'vit_qubit_centric', 'vit_lut_concat'],
+                        help='Model type: qubit_centric, lut_residual, lut_concat, diamond, diamond_deep, diamond_attn, vit_qubit_centric, vit_lut_concat')
     parser.add_argument('--d_model', type=int, default=128)
+    parser.add_argument('--h', type=int, default=8, help='Number of attention heads (for ViT models)')
+    parser.add_argument('--N_dec', type=int, default=6, help='Number of transformer layers (for ViT models)')
     parser.add_argument('--dropout', type=float, default=0.2)
     parser.add_argument('--label_smoothing', type=float, default=0.1)
 
@@ -170,7 +189,14 @@ if __name__ == '__main__':
         y_str = 'mixed_' + '_'.join(str(y) for y in args.y_ratios)
     else:
         y_str = str(args.y_ratio)
-    args.path = f'Final_Results/surface/L_{args.code_L}/y_{y_str}/{model_name}/{timestamp}'
+
+    # Include noise model in path
+    if args.p_meas > 0:
+        noise_str = f'phenomenological_pmeas{args.p_meas}'
+    else:
+        noise_str = 'code_capacity'
+
+    args.path = f'Final_Results/surface/L_{args.code_L}/y_{y_str}/{noise_str}/{model_name}/{timestamp}'
     os.makedirs(args.path, exist_ok=True)
 
     # Logging

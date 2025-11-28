@@ -285,3 +285,294 @@ class ECC_ViT_Large(nn.Module):
 
     def loss(self, pred, true_label):
         return self.criterion(pred, true_label)
+
+
+class ECC_ViT_QubitCentric(nn.Module):
+    """
+    ViT with QubitCentric input representation.
+
+    Uses H.T @ syndrome to create dense qubit-level grid,
+    then applies ViT architecture for global attention.
+
+    Input: [H_z.T @ s_z, H_x.T @ s_x] - 2 channel qubit count grid
+    """
+
+    def __init__(self, args, dropout=0.1, label_smoothing=0.0):
+        super(ECC_ViT_QubitCentric, self).__init__()
+        self.args = args
+        self.L = args.code_L
+
+        code = args.code
+        self.n_z = code.H_z.shape[0]
+        self.n_x = code.H_x.shape[0]
+        self.n_qubits = code.H_z.shape[1]
+
+        # Store H matrices
+        H_z_np = code.H_z.cpu().numpy() if torch.is_tensor(code.H_z) else code.H_z
+        H_x_np = code.H_x.cpu().numpy() if torch.is_tensor(code.H_x) else code.H_x
+
+        self.register_buffer('H_z', torch.from_numpy(H_z_np).float())
+        self.register_buffer('H_x', torch.from_numpy(H_x_np).float())
+
+        # Transformer config
+        d_model = getattr(args, 'd_model', 128)
+        n_heads = getattr(args, 'h', 8)
+        n_layers = getattr(args, 'N_dec', 6)
+
+        self.d_model = d_model
+        self.n_patches = self.L * self.L
+
+        # CNN Patch Embedding
+        self.patch_embed = nn.Sequential(
+            nn.Conv2d(2, 64, kernel_size=3, padding=1),
+            nn.BatchNorm2d(64),
+            nn.GELU(),
+            nn.Conv2d(64, d_model, kernel_size=1),
+        )
+
+        # CLS token
+        self.cls_token = nn.Parameter(torch.randn(1, 1, d_model) * 0.02)
+
+        # Learnable position embeddings
+        self.pos_embed = nn.Parameter(torch.randn(1, 1 + self.n_patches, d_model) * 0.02)
+
+        # Dropout
+        self.dropout = nn.Dropout(dropout)
+
+        # Transformer encoder
+        encoder_layer = nn.TransformerEncoderLayer(
+            d_model=d_model,
+            nhead=n_heads,
+            dim_feedforward=d_model * 4,
+            dropout=dropout,
+            activation='gelu',
+            batch_first=True
+        )
+        self.transformer = nn.TransformerEncoder(encoder_layer, num_layers=n_layers)
+
+        # Classification head
+        self.head = nn.Sequential(
+            nn.LayerNorm(d_model),
+            nn.Linear(d_model, 4)
+        )
+
+        # Loss
+        if label_smoothing > 0:
+            self.criterion = nn.CrossEntropyLoss(label_smoothing=label_smoothing)
+        else:
+            self.criterion = nn.CrossEntropyLoss()
+
+    def _compute_qubit_grid(self, syndrome):
+        """Compute 2-channel qubit count grid using H.T @ syndrome."""
+        batch_size = syndrome.shape[0]
+        L = self.L
+
+        s_z = syndrome[:, :self.n_z]
+        s_x = syndrome[:, self.n_z:]
+
+        # H.T @ syndrome = qubit-centric count
+        z_count = torch.matmul(s_z, self.H_z)  # (B, n_qubits)
+        x_count = torch.matmul(s_x, self.H_x)  # (B, n_qubits)
+
+        # Normalize to [0, 1] range (max count is 4 for surface code)
+        z_count = z_count / 4.0
+        x_count = x_count / 4.0
+
+        z_grid = z_count.view(batch_size, L, L)
+        x_grid = x_count.view(batch_size, L, L)
+
+        return torch.stack([z_grid, x_grid], dim=1)  # (B, 2, L, L)
+
+    def forward(self, x):
+        batch_size = x.shape[0]
+
+        # QubitCentric grid representation
+        x = self._compute_qubit_grid(x)  # (B, 2, L, L)
+
+        # Patch embedding
+        x = self.patch_embed(x)  # (B, d_model, L, L)
+
+        # Flatten patches to sequence
+        x = x.flatten(2).transpose(1, 2)  # (B, L*L, d_model)
+
+        # Prepend CLS token
+        cls_tokens = self.cls_token.expand(batch_size, -1, -1)
+        x = torch.cat([cls_tokens, x], dim=1)  # (B, 1+L*L, d_model)
+
+        # Add position embedding
+        x = x + self.pos_embed
+        x = self.dropout(x)
+
+        # Transformer
+        x = self.transformer(x)
+
+        # Use CLS token for classification
+        x = x[:, 0]
+
+        # Classification head
+        x = self.head(x)
+
+        return x
+
+    def loss(self, pred, true_label):
+        return self.criterion(pred, true_label)
+
+
+class ECC_ViT_LUT_Concat(nn.Module):
+    """
+    ViT with LUT Concat input (4 channels).
+
+    Input: [real_z_count, real_x_count, lut_z_error, lut_x_error]
+    Combines qubit-centric representation with LUT predictions.
+    """
+
+    def __init__(self, args, x_error_lut, z_error_lut, dropout=0.1, label_smoothing=0.0):
+        super(ECC_ViT_LUT_Concat, self).__init__()
+        self.args = args
+        self.L = args.code_L
+
+        code = args.code
+        self.n_z = code.H_z.shape[0]
+        self.n_x = code.H_x.shape[0]
+        self.n_qubits = code.H_z.shape[1]
+
+        # Convert LUT dict to tensor
+        x_lut_tensor = torch.zeros(self.n_z, self.n_qubits)
+        for i, err in x_error_lut.items():
+            if i < self.n_z:
+                x_lut_tensor[i] = err.float()
+        self.register_buffer('x_lut', x_lut_tensor)
+
+        z_lut_tensor = torch.zeros(self.n_x, self.n_qubits)
+        for i, err in z_error_lut.items():
+            if i < self.n_x:
+                z_lut_tensor[i] = err.float()
+        self.register_buffer('z_lut', z_lut_tensor)
+
+        # Store H matrices
+        H_z_np = code.H_z.cpu().numpy() if torch.is_tensor(code.H_z) else code.H_z
+        H_x_np = code.H_x.cpu().numpy() if torch.is_tensor(code.H_x) else code.H_x
+
+        self.register_buffer('H_z', torch.from_numpy(H_z_np).float())
+        self.register_buffer('H_x', torch.from_numpy(H_x_np).float())
+
+        # Transformer config
+        d_model = getattr(args, 'd_model', 128)
+        n_heads = getattr(args, 'h', 8)
+        n_layers = getattr(args, 'N_dec', 6)
+
+        self.d_model = d_model
+        self.n_patches = self.L * self.L
+
+        # CNN Patch Embedding (4 channels)
+        self.patch_embed = nn.Sequential(
+            nn.Conv2d(4, 64, kernel_size=3, padding=1),
+            nn.BatchNorm2d(64),
+            nn.GELU(),
+            nn.Conv2d(64, 128, kernel_size=3, padding=1),
+            nn.BatchNorm2d(128),
+            nn.GELU(),
+            nn.Conv2d(128, d_model, kernel_size=1),
+        )
+
+        # CLS token
+        self.cls_token = nn.Parameter(torch.randn(1, 1, d_model) * 0.02)
+
+        # Learnable position embeddings
+        self.pos_embed = nn.Parameter(torch.randn(1, 1 + self.n_patches, d_model) * 0.02)
+
+        # Dropout
+        self.dropout = nn.Dropout(dropout)
+
+        # Transformer encoder
+        encoder_layer = nn.TransformerEncoderLayer(
+            d_model=d_model,
+            nhead=n_heads,
+            dim_feedforward=d_model * 4,
+            dropout=dropout,
+            activation='gelu',
+            batch_first=True
+        )
+        self.transformer = nn.TransformerEncoder(encoder_layer, num_layers=n_layers)
+
+        # Classification head
+        self.head = nn.Sequential(
+            nn.LayerNorm(d_model),
+            nn.Linear(d_model, d_model // 2),
+            nn.GELU(),
+            nn.Dropout(dropout),
+            nn.Linear(d_model // 2, 4)
+        )
+
+        # Loss
+        if label_smoothing > 0:
+            self.criterion = nn.CrossEntropyLoss(label_smoothing=label_smoothing)
+        else:
+            self.criterion = nn.CrossEntropyLoss()
+
+    def _batch_lut_lookup(self, syndrome):
+        """Vectorized batch LUT lookup."""
+        s_z = syndrome[:, :self.n_z]
+        s_x = syndrome[:, self.n_z:]
+
+        c_x = torch.matmul(s_z, self.x_lut) % 2
+        c_z = torch.matmul(s_x, self.z_lut) % 2
+
+        return c_z, c_x
+
+    def _compute_concat_grid(self, syndrome):
+        """Compute 4-channel grid."""
+        batch_size = syndrome.shape[0]
+        L = self.L
+
+        s_z = syndrome[:, :self.n_z]
+        s_x = syndrome[:, self.n_z:]
+
+        # Real qubit count (normalized)
+        real_z_count = torch.matmul(s_z, self.H_z) / 4.0
+        real_x_count = torch.matmul(s_x, self.H_x) / 4.0
+
+        # LUT lookup
+        lut_e_z, lut_e_x = self._batch_lut_lookup(syndrome)
+
+        # Reshape to grid
+        real_z_grid = real_z_count.view(batch_size, L, L)
+        real_x_grid = real_x_count.view(batch_size, L, L)
+        lut_z_grid = lut_e_z.view(batch_size, L, L)
+        lut_x_grid = lut_e_x.view(batch_size, L, L)
+
+        return torch.stack([real_z_grid, real_x_grid, lut_z_grid, lut_x_grid], dim=1)
+
+    def forward(self, x):
+        batch_size = x.shape[0]
+
+        # 4-channel grid representation
+        x = self._compute_concat_grid(x)  # (B, 4, L, L)
+
+        # Patch embedding
+        x = self.patch_embed(x)  # (B, d_model, L, L)
+
+        # Flatten patches to sequence
+        x = x.flatten(2).transpose(1, 2)  # (B, L*L, d_model)
+
+        # Prepend CLS token
+        cls_tokens = self.cls_token.expand(batch_size, -1, -1)
+        x = torch.cat([cls_tokens, x], dim=1)  # (B, 1+L*L, d_model)
+
+        # Add position embedding
+        x = x + self.pos_embed
+        x = self.dropout(x)
+
+        # Transformer
+        x = self.transformer(x)
+
+        # Use CLS token for classification
+        x = x[:, 0]
+
+        # Classification head
+        x = self.head(x)
+
+        return x
+
+    def loss(self, pred, true_label):
+        return self.criterion(pred, true_label)
