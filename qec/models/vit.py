@@ -99,7 +99,11 @@ class ECC_ViT(nn.Module):
             self.criterion = nn.CrossEntropyLoss()
 
     def _syndrome_to_grid(self, syndrome):
-        """Convert flat syndrome to 2-channel 2D grid."""
+        """
+        Convert flat syndrome to 2-channel 2D grid.
+
+        Value encoding: 0 = empty, -1 = no error, +1 = error detected
+        """
         batch_size = syndrome.shape[0]
         device = syndrome.device
         h = w = self.grid_size
@@ -110,13 +114,17 @@ class ECC_ViT(nn.Module):
         s_z = syndrome[:, :self.n_z]
         s_x = syndrome[:, self.n_z:]
 
+        # Convert syndrome: 0 -> -1, 1 -> +1
+        s_z_encoded = s_z * 2 - 1
+        s_x_encoded = s_x * 2 - 1
+
         for idx, (row, col) in self.z_coord_map.items():
             if idx < self.n_z:
-                z_grid[:, row, col] += s_z[:, idx]
+                z_grid[:, row, col] = s_z_encoded[:, idx]
 
         for idx, (row, col) in self.x_coord_map.items():
             if idx < self.n_x:
-                x_grid[:, row, col] += s_x[:, idx]
+                x_grid[:, row, col] = s_x_encoded[:, idx]
 
         return torch.stack([z_grid, x_grid], dim=1)
 
@@ -231,7 +239,11 @@ class ECC_ViT_Large(nn.Module):
             self.criterion = nn.CrossEntropyLoss()
 
     def _syndrome_to_grid(self, syndrome):
-        """Convert flat syndrome to 2-channel 2D grid."""
+        """
+        Convert flat syndrome to 2-channel 2D grid.
+
+        Value encoding: 0 = empty, -1 = no error, +1 = error detected
+        """
         batch_size = syndrome.shape[0]
         device = syndrome.device
         h = w = self.grid_size
@@ -242,13 +254,17 @@ class ECC_ViT_Large(nn.Module):
         s_z = syndrome[:, :self.n_z]
         s_x = syndrome[:, self.n_z:]
 
+        # Convert syndrome: 0 -> -1, 1 -> +1
+        s_z_encoded = s_z * 2 - 1
+        s_x_encoded = s_x * 2 - 1
+
         for idx, (row, col) in self.z_coord_map.items():
             if idx < self.n_z:
-                z_grid[:, row, col] += s_z[:, idx]
+                z_grid[:, row, col] = s_z_encoded[:, idx]
 
         for idx, (row, col) in self.x_coord_map.items():
             if idx < self.n_x:
-                x_grid[:, row, col] += s_x[:, idx]
+                x_grid[:, row, col] = s_x_encoded[:, idx]
 
         return torch.stack([z_grid, x_grid], dim=1)
 

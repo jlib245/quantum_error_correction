@@ -25,16 +25,26 @@ class DiamondGridBuilder(nn.Module):
     """
     Syndrome + LUT prediction을 45도 회전된 dense grid로 변환.
 
-    4 Channels:
+    6 Channels:
     - Ch0: LUT predicted X errors (from Z syndrome) at Q positions
     - Ch1: LUT predicted Z errors (from X syndrome) at Q positions
     - Ch2: Z syndrome at Z stabilizer positions
     - Ch3: X syndrome at X stabilizer positions
+    - Ch4: H_z.T @ s_z (aggregated Z syndrome count) at Q positions
+    - Ch5: H_x.T @ s_x (aggregated X syndrome count) at Q positions
 
-    Value encoding:
-    - -0.5 = "이 위치에 해당 타입 없음" (incoherent value)
-    - 0 = "해당 타입이고, 값이 0"
-    - 1 = "해당 타입이고, 값이 1"
+    Value encoding for syndrome channels (Ch2, Ch3):
+    - 0 = empty (no stabilizer at this position)
+    - -1 = stabilizer present, no error detected
+    - +1 = stabilizer present, error detected
+
+    Value encoding for LUT channels (Ch0, Ch1):
+    - 0 = empty or no error predicted
+    - 1 = error predicted
+
+    Value encoding for count channels (Ch4, Ch5):
+    - 0 = empty or zero count
+    - 0~1 = normalized count (0~4) / 4
     """
 
     def __init__(self, L, H_z, H_x, x_error_lut=None, z_error_lut=None):
@@ -184,8 +194,8 @@ class DiamondGridBuilder(nn.Module):
             grid: (B, 6, H, W) - 6 channels:
                 Ch0: LUT predicted X errors at Q positions
                 Ch1: LUT predicted Z errors at Q positions
-                Ch2: Z syndrome at Z positions
-                Ch3: X syndrome at X positions
+                Ch2: Z syndrome at Z positions (0=empty, -1=no error, +1=error)
+                Ch3: X syndrome at X positions (0=empty, -1=no error, +1=error)
                 Ch4: H_z.T @ s_z (aggregated Z syndrome count) at Q positions
                 Ch5: H_x.T @ s_x (aggregated X syndrome count) at Q positions
         """
@@ -211,21 +221,23 @@ class DiamondGridBuilder(nn.Module):
         z_count = torch.matmul(s_z, self.H_z) / 4.0  # (B, n_qubits)
         x_count = torch.matmul(s_x, self.H_x) / 4.0  # (B, n_qubits)
 
-        # Initialize rotated grid with incoherent value (-0.5)
-        grid = torch.full((B, 6, self.new_size, self.new_size), -0.5, device=device)
+        # Initialize rotated grid with 0 (empty)
+        grid = torch.zeros((B, 6, self.new_size, self.new_size), device=device)
 
         # Vectorized assignment using advanced indexing
-        # Channel 0: LUT predicted X errors at Q positions
+        # Channel 0: LUT predicted X errors at Q positions (0/1)
         grid[:, 0, self.qubit_rows, self.qubit_cols] = lut_x_error[:, self.qubit_src_idx]
 
-        # Channel 1: LUT predicted Z errors at Q positions
+        # Channel 1: LUT predicted Z errors at Q positions (0/1)
         grid[:, 1, self.qubit_rows, self.qubit_cols] = lut_z_error[:, self.qubit_src_idx]
 
-        # Channel 2: Z-syndrome values
-        grid[:, 2, self.z_stab_rows, self.z_stab_cols] = s_z[:, self.z_stab_src_idx]
+        # Channel 2: Z-syndrome values (0 -> -1, 1 -> +1)
+        s_z_encoded = s_z * 2 - 1  # Convert: 0 -> -1, 1 -> +1
+        grid[:, 2, self.z_stab_rows, self.z_stab_cols] = s_z_encoded[:, self.z_stab_src_idx]
 
-        # Channel 3: X-syndrome values
-        grid[:, 3, self.x_stab_rows, self.x_stab_cols] = s_x[:, self.x_stab_src_idx]
+        # Channel 3: X-syndrome values (0 -> -1, 1 -> +1)
+        s_x_encoded = s_x * 2 - 1  # Convert: 0 -> -1, 1 -> +1
+        grid[:, 3, self.x_stab_rows, self.x_stab_cols] = s_x_encoded[:, self.x_stab_src_idx]
 
         # Channel 4: Aggregated Z syndrome count at Q positions
         grid[:, 4, self.qubit_rows, self.qubit_cols] = z_count[:, self.qubit_src_idx]

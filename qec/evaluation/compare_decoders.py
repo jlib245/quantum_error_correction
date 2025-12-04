@@ -436,8 +436,8 @@ def main(args):
     logging.info(f"Test shots per p: {args.n_shots}")
     logging.info(f"Error rates: {args.p_errors}")
 
-    # Setup device
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    # Setup device - use CPU for stability
+    device = torch.device('cpu')
     logging.info(f"Device: {device}")
 
     # Load code
@@ -563,6 +563,26 @@ def main(args):
         if diamond_deep_results:
             all_results['Diamond_Deep'] = diamond_deep_results
 
+    # Evaluate ViT_QubitCentric
+    if args.vit_qubit_centric_model:
+        vit_qc_results = evaluate_nn_model(
+            args.vit_qubit_centric_model, 'VIT_QUBIT_CENTRIC',
+            Hx, Hz, Lx, Lz, args.p_errors,
+            n_shots=args.n_shots, y_ratio=args.y_ratio, device=device
+        )
+        if vit_qc_results:
+            all_results['ViT_QubitCentric'] = vit_qc_results
+
+    # Evaluate ViT_LUT_Concat
+    if args.vit_lut_concat_model:
+        vit_lut_results = evaluate_nn_model(
+            args.vit_lut_concat_model, 'VIT_LUT_CONCAT',
+            Hx, Hz, Lx, Lz, args.p_errors,
+            n_shots=args.n_shots, y_ratio=args.y_ratio, device=device
+        )
+        if vit_lut_results:
+            all_results['ViT_LUT_Concat'] = vit_lut_results
+
     # Print comparison
     if all_results:
         print_comparison_table(all_results)
@@ -608,6 +628,10 @@ if __name__ == '__main__':
                         help='Path to trained Diamond CNN model')
     parser.add_argument('--diamond_deep_model', type=str, default=None,
                         help='Path to trained Diamond Deep CNN model')
+    parser.add_argument('--vit_qubit_centric_model', type=str, default=None,
+                        help='Path to trained ViT_QubitCentric model')
+    parser.add_argument('--vit_lut_concat_model', type=str, default=None,
+                        help='Path to trained ViT_LUT_Concat model')
 
     args = parser.parse_args()
     main(args)
