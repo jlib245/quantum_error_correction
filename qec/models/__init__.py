@@ -10,7 +10,7 @@ from qec.models.transformer import (
 )
 from qec.models.ffnn import (
     ECC_FFNN,
-    FFNN_Decoder,
+    ECC_FFNN_Large,
 )
 
 __all__ = [
@@ -19,5 +19,5 @@ __all__ = [
     "PositionalEncoding",
     "StructuredLabelSmoothing",
     "ECC_FFNN",
-    "FFNN_Decoder",
+    "ECC_FFNN_Large",
 ]
