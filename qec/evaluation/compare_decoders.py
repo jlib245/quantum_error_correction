@@ -14,6 +14,44 @@ from qec.core.codes import Get_surface_Code
 from qec.decoders.mwpm import MWPM_Decoder
 
 
+def generate_noise_batch(n_phys, p, y_ratio, batch_size, device='cpu'):
+    """Generate batch of correlated noise on device.
+
+    Args:
+        n_phys: Number of physical qubits
+        p: Total error probability
+        y_ratio: Ratio of Y errors (0 to 1)
+        batch_size: Number of samples to generate
+        device: torch device
+
+    Returns:
+        e_x, e_z: X and Z error tensors of shape (batch_size, n_phys)
+    """
+    if y_ratio > 0:
+        # Correlated noise
+        p_y = p * y_ratio
+        p_xz = p * (1 - y_ratio) / 2
+
+        rand_vals = torch.rand(batch_size, n_phys, device=device)
+
+        e_y = rand_vals < p_y
+        e_x_only = (p_y <= rand_vals) & (rand_vals < p_y + p_xz)
+        e_z_only = (p_y + p_xz <= rand_vals) & (rand_vals < p_y + 2*p_xz)
+
+        e_x = (e_y | e_x_only).to(torch.uint8)
+        e_z = (e_y | e_z_only).to(torch.uint8)
+    else:
+        # Independent depolarizing noise
+        rand_vals = torch.rand(batch_size, n_phys, device=device)
+        e_z = (rand_vals < p/3).to(torch.uint8)
+        e_x = ((p/3 <= rand_vals) & (rand_vals < 2*p/3)).to(torch.uint8)
+        e_y = ((2*p/3 <= rand_vals) & (rand_vals < p)).to(torch.uint8)
+        e_z = (e_z + e_y) % 2
+        e_x = (e_x + e_y) % 2
+
+    return e_x, e_z
+
+
 # Define Code class at module level for model loading
 class Code:
     pass
@@ -78,7 +116,7 @@ def evaluate_mwpm(Hx, Hz, Lx, Lz, p_errors, n_shots=10000, y_ratio=0.0):
 
 
 def evaluate_nn_model(model_path, model_type, Hx, Hz, Lx, Lz, p_errors,
-                      n_shots=10000, y_ratio=0.0, device='cuda'):
+                      n_shots=10000, y_ratio=0.0, device='cuda', batch_size=1024):
     """Evaluate neural network decoder."""
     logging.info("\n" + "="*60)
     logging.info(f"{model_type.upper()} Model Evaluation")
@@ -232,79 +270,151 @@ def evaluate_nn_model(model_path, model_type, Hx, Hz, Lx, Lz, p_errors,
     results = {}
     n_phys = Hx.shape[1]
 
+    # Determine if we should use batch inference (GPU/XPU only)
+    use_batch = device.type in ['cuda', 'xpu']
+    if not use_batch:
+        batch_size = 1
+
+    if use_batch:
+        logging.info(f"Using batch inference (batch_size={batch_size})")
+    else:
+        logging.info("Using single-sample inference (CPU mode)")
+
+    import time
+    from tqdm import tqdm
+
     with torch.no_grad():
         for idx, p in enumerate(p_errors):
             _reset_seed_for_idx(idx)  # Reset seed for each p index
             logging.info(f"\nTesting p={p:.3f}...")
 
             logical_error_count = 0
-            import time
-            from tqdm import tqdm
-
             total_inference_time = 0
 
-            for _ in tqdm(range(n_shots)):
-                # Generate noise
-                if y_ratio > 0:
-                    from qec.decoders.mwpm import generate_correlated_noise
-                    e_x_np, e_z_np = generate_correlated_noise(n_phys, p, y_ratio)
-                else:
-                    rand_vals = np.random.rand(n_phys)
-                    e_z_np = (rand_vals < p/3)
-                    e_x_np = (p/3 <= rand_vals) & (rand_vals < 2*p/3)
-                    e_y_np = (2*p/3 <= rand_vals) & (rand_vals < p)
-                    e_z_np, e_x_np = (e_z_np + e_y_np) % 2, (e_x_np + e_y_np) % 2
+            if use_batch:
+                # Batch inference for GPU/XPU
+                n_batches = (n_shots + batch_size - 1) // batch_size
 
-                e_z = torch.from_numpy(e_z_np).to(device, dtype=torch.uint8)
-                e_x = torch.from_numpy(e_x_np).to(device, dtype=torch.uint8)
-                e_full = torch.cat([e_z, e_x])
+                for batch_idx in tqdm(range(n_batches)):
+                    current_batch_size = min(batch_size, n_shots - batch_idx * batch_size)
 
-                # Calculate syndrome
-                s_z_actual = (code.H_z.float() @ e_x.float()) % 2
-                s_x_actual = (code.H_x.float() @ e_z.float()) % 2
-                syndrome = torch.cat([s_z_actual, s_x_actual])
+                    # Generate batch noise on device
+                    e_x, e_z = generate_noise_batch(n_phys, p, y_ratio, current_batch_size, device)
 
-                # NN prediction
-                start_time = time.perf_counter()
-                outputs = model(syndrome.float().unsqueeze(0))
-                _, predicted = torch.max(outputs.data, 1)
-                end_time = time.perf_counter()
-                total_inference_time += (end_time - start_time)
+                    # Calculate syndromes (batch)
+                    # s_z = H_z @ e_x^T, s_x = H_x @ e_z^T
+                    s_z = (code.H_z.float() @ e_x.float().T).T % 2  # (batch, n_z_stab)
+                    s_x = (code.H_x.float() @ e_z.float().T).T % 2  # (batch, n_x_stab)
+                    syndromes = torch.cat([s_z, s_x], dim=1)  # (batch, n_stab)
 
-                # Get ground truth
-                pure_error_C = simple_decoder_C_torch(
-                    syndrome.type(torch.uint8),
-                    x_error_basis,
-                    z_error_basis,
-                    code.H_z,
-                    code.H_x
-                )
-                l_physical = pure_error_C.long() ^ e_full.long()
+                    # Batch NN prediction
+                    if torch.cuda.is_available():
+                        torch.cuda.synchronize()
+                    elif hasattr(torch, 'xpu') and torch.xpu.is_available():
+                        torch.xpu.synchronize()
 
-                l_z_physical = l_physical[:n_phys]
-                l_x_physical = l_physical[n_phys:]
+                    start_time = time.perf_counter()
+                    outputs = model(syndromes.float())
+                    _, predicted = torch.max(outputs.data, 1)
 
-                l_x_flip = (code.L_z.float() @ l_x_physical.float()) % 2
-                l_z_flip = (code.L_x.float() @ l_z_physical.float()) % 2
+                    if torch.cuda.is_available():
+                        torch.cuda.synchronize()
+                    elif hasattr(torch, 'xpu') and torch.xpu.is_available():
+                        torch.xpu.synchronize()
 
-                true_class_index = (l_z_flip * 2 + l_x_flip).long()
+                    end_time = time.perf_counter()
+                    total_inference_time += (end_time - start_time)
 
-                # Check if prediction is wrong
-                if predicted.item() != true_class_index.item():
-                    logical_error_count += 1
+                    # Compute ground truth (batch)
+                    e_full = torch.cat([e_z, e_x], dim=1)  # (batch, 2*n_phys)
+
+                    # Get pure error for each syndrome in batch
+                    for i in range(current_batch_size):
+                        syndrome_i = syndromes[i].type(torch.uint8)
+                        pure_error_C = simple_decoder_C_torch(
+                            syndrome_i,
+                            x_error_basis,
+                            z_error_basis,
+                            code.H_z,
+                            code.H_x
+                        )
+                        l_physical = pure_error_C.long() ^ e_full[i].long()
+
+                        l_z_physical = l_physical[:n_phys]
+                        l_x_physical = l_physical[n_phys:]
+
+                        l_x_flip = (code.L_z.float() @ l_x_physical.float()) % 2
+                        l_z_flip = (code.L_x.float() @ l_z_physical.float()) % 2
+
+                        true_class_index = (l_z_flip * 2 + l_x_flip).long()
+
+                        if predicted[i].item() != true_class_index.item():
+                            logical_error_count += 1
+            else:
+                # Single-sample inference for CPU
+                from qec.decoders.mwpm import generate_correlated_noise
+
+                for _ in tqdm(range(n_shots)):
+                    # Generate noise
+                    if y_ratio > 0:
+                        e_x_np, e_z_np = generate_correlated_noise(n_phys, p, y_ratio)
+                    else:
+                        rand_vals = np.random.rand(n_phys)
+                        e_z_np = (rand_vals < p/3)
+                        e_x_np = (p/3 <= rand_vals) & (rand_vals < 2*p/3)
+                        e_y_np = (2*p/3 <= rand_vals) & (rand_vals < p)
+                        e_z_np, e_x_np = (e_z_np + e_y_np) % 2, (e_x_np + e_y_np) % 2
+
+                    e_z = torch.from_numpy(e_z_np).to(device, dtype=torch.uint8)
+                    e_x = torch.from_numpy(e_x_np).to(device, dtype=torch.uint8)
+                    e_full = torch.cat([e_z, e_x])
+
+                    # Calculate syndrome
+                    s_z_actual = (code.H_z.float() @ e_x.float()) % 2
+                    s_x_actual = (code.H_x.float() @ e_z.float()) % 2
+                    syndrome = torch.cat([s_z_actual, s_x_actual])
+
+                    # NN prediction
+                    start_time = time.perf_counter()
+                    outputs = model(syndrome.float().unsqueeze(0))
+                    _, predicted = torch.max(outputs.data, 1)
+                    end_time = time.perf_counter()
+                    total_inference_time += (end_time - start_time)
+
+                    # Get ground truth
+                    pure_error_C = simple_decoder_C_torch(
+                        syndrome.type(torch.uint8),
+                        x_error_basis,
+                        z_error_basis,
+                        code.H_z,
+                        code.H_x
+                    )
+                    l_physical = pure_error_C.long() ^ e_full.long()
+
+                    l_z_physical = l_physical[:n_phys]
+                    l_x_physical = l_physical[n_phys:]
+
+                    l_x_flip = (code.L_z.float() @ l_x_physical.float()) % 2
+                    l_z_flip = (code.L_x.float() @ l_z_physical.float()) % 2
+
+                    true_class_index = (l_z_flip * 2 + l_x_flip).long()
+
+                    if predicted.item() != true_class_index.item():
+                        logical_error_count += 1
 
             ler = logical_error_count / n_shots
-            avg_latency = (total_inference_time / n_shots) * 1000  # ms
+            avg_latency = (total_inference_time / n_shots) * 1000  # ms (per sample, amortized for batch)
 
             results[p] = {
                 'ler': ler,
                 'avg_latency': avg_latency,
                 'logical_errors': logical_error_count,
-                'total_shots': n_shots
+                'total_shots': n_shots,
+                'batch_size': batch_size if use_batch else 1
             }
 
             logging.info(f"  LER: {ler:.6e}")
-            logging.info(f"  Avg Latency: {avg_latency:.6f} ms")
+            logging.info(f"  Avg Latency: {avg_latency:.6f} ms (per sample, {'batch amortized' if use_batch else 'single'})")
             logging.info(f"  Logical Errors: {logical_error_count}/{n_shots}")
 
     return results
@@ -350,15 +460,28 @@ def plot_comparison_graphs(results_dict, save_dir, L, y_ratio):
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 5))
 
     # Color and marker styles for different decoders
+    # Regular models: solid lines with circle-like markers
+    # Code Capacity models: dashed lines with different markers
     styles = {
-        'MWPM': {'color': 'blue', 'marker': 'o', 'linestyle': '-'},
-        'Transformer': {'color': 'red', 'marker': 's', 'linestyle': '--'},
-        'FFNN': {'color': 'green', 'marker': '^', 'linestyle': '-.'},
-        'CNN': {'color': 'purple', 'marker': 'd', 'linestyle': ':'},
-        'CNN_Large': {'color': 'orange', 'marker': 'v', 'linestyle': '-'},
-        'ViT': {'color': 'brown', 'marker': 'p', 'linestyle': '--'},
-        'ViT_Large': {'color': 'cyan', 'marker': 'h', 'linestyle': '-.'},
-        'ViT_DualGrid': {'color': 'magenta', 'marker': '*', 'linestyle': '-'}
+        # Classical decoder
+        'MWPM': {'color': '#000000', 'marker': 'o', 'linestyle': '-'},  # black
+
+        # Regular models (solid lines) - warm colors
+        'Transformer': {'color': '#1f77b4', 'marker': 's', 'linestyle': '-'},  # blue
+        'FFNN': {'color': '#d62728', 'marker': '^', 'linestyle': '-'},  # red
+        'CNN': {'color': '#2ca02c', 'marker': 'd', 'linestyle': '-'},  # green
+        'CNN_Large': {'color': '#ff7f0e', 'marker': 'v', 'linestyle': '-'},  # orange
+        'ViT': {'color': '#9467bd', 'marker': 'p', 'linestyle': '-'},  # purple
+        'ViT_Large': {'color': '#8c564b', 'marker': 'h', 'linestyle': '-'},  # brown
+
+        # Code Capacity models (dashed lines) - cool/distinct colors
+        'Diamond': {'color': '#17becf', 'marker': 'D', 'linestyle': '--'},  # cyan
+        'Diamond_Deep': {'color': '#bcbd22', 'marker': 'H', 'linestyle': '--'},  # olive
+        'LUT_Concat': {'color': '#e377c2', 'marker': 'P', 'linestyle': '--'},  # pink
+        'LUT_Residual': {'color': '#7f7f7f', 'marker': 'X', 'linestyle': '--'},  # gray
+        'QubitCentric': {'color': '#aec7e8', 'marker': '<', 'linestyle': '--'},  # light blue
+        'ViT_QubitCentric': {'color': '#ffbb78', 'marker': '>', 'linestyle': '--'},  # light orange
+        'ViT_LUT_Concat': {'color': '#98df8a', 'marker': '*', 'linestyle': '--'},  # light green
     }
 
     # Plot LER (Logical Error Rate)
@@ -436,8 +559,37 @@ def main(args):
     logging.info(f"Test shots per p: {args.n_shots}")
     logging.info(f"Error rates: {args.p_errors}")
 
-    # Setup device - use CPU for stability
-    device = torch.device('cpu')
+    # Setup device based on args
+    def check_xpu_available():
+        """Check if XPU is available (Intel GPU via PyTorch 2.9+ native support)"""
+        try:
+            if hasattr(torch, 'xpu') and torch.xpu.is_available():
+                return True
+        except Exception:
+            pass
+        return False
+
+    if args.device == 'auto':
+        if torch.cuda.is_available():
+            device = torch.device('cuda')
+        elif check_xpu_available():
+            device = torch.device('xpu')
+        else:
+            device = torch.device('cpu')
+    elif args.device == 'cuda':
+        if torch.cuda.is_available():
+            device = torch.device('cuda')
+        else:
+            logging.warning("CUDA not available, falling back to CPU")
+            device = torch.device('cpu')
+    elif args.device == 'xpu':
+        if check_xpu_available():
+            device = torch.device('xpu')
+        else:
+            logging.warning("XPU not available, falling back to CPU")
+            device = torch.device('cpu')
+    else:
+        device = torch.device('cpu')
     logging.info(f"Device: {device}")
 
     # Load code
@@ -458,7 +610,8 @@ def main(args):
         transformer_results = evaluate_nn_model(
             args.transformer_model, 'Transformer',
             Hx, Hz, Lx, Lz, args.p_errors,
-            n_shots=args.n_shots, y_ratio=args.y_ratio, device=device
+            n_shots=args.n_shots, y_ratio=args.y_ratio, device=device,
+            batch_size=args.batch_size
         )
         if transformer_results:
             all_results['Transformer'] = transformer_results
@@ -468,7 +621,8 @@ def main(args):
         ffnn_results = evaluate_nn_model(
             args.ffnn_model, 'FFNN',
             Hx, Hz, Lx, Lz, args.p_errors,
-            n_shots=args.n_shots, y_ratio=args.y_ratio, device=device
+            n_shots=args.n_shots, y_ratio=args.y_ratio, device=device,
+            batch_size=args.batch_size
         )
         if ffnn_results:
             all_results['FFNN'] = ffnn_results
@@ -478,7 +632,8 @@ def main(args):
         cnn_results = evaluate_nn_model(
             args.cnn_model, 'CNN',
             Hx, Hz, Lx, Lz, args.p_errors,
-            n_shots=args.n_shots, y_ratio=args.y_ratio, device=device
+            n_shots=args.n_shots, y_ratio=args.y_ratio, device=device,
+            batch_size=args.batch_size
         )
         if cnn_results:
             all_results['CNN'] = cnn_results
@@ -488,7 +643,8 @@ def main(args):
         cnn_large_results = evaluate_nn_model(
             args.cnn_large_model, 'CNN_Large',
             Hx, Hz, Lx, Lz, args.p_errors,
-            n_shots=args.n_shots, y_ratio=args.y_ratio, device=device
+            n_shots=args.n_shots, y_ratio=args.y_ratio, device=device,
+            batch_size=args.batch_size
         )
         if cnn_large_results:
             all_results['CNN_Large'] = cnn_large_results
@@ -498,7 +654,8 @@ def main(args):
         vit_results = evaluate_nn_model(
             args.vit_model, 'ViT',
             Hx, Hz, Lx, Lz, args.p_errors,
-            n_shots=args.n_shots, y_ratio=args.y_ratio, device=device
+            n_shots=args.n_shots, y_ratio=args.y_ratio, device=device,
+            batch_size=args.batch_size
         )
         if vit_results:
             all_results['ViT'] = vit_results
@@ -508,7 +665,8 @@ def main(args):
         vit_large_results = evaluate_nn_model(
             args.vit_large_model, 'ViT_Large',
             Hx, Hz, Lx, Lz, args.p_errors,
-            n_shots=args.n_shots, y_ratio=args.y_ratio, device=device
+            n_shots=args.n_shots, y_ratio=args.y_ratio, device=device,
+            batch_size=args.batch_size
         )
         if vit_large_results:
             all_results['ViT_Large'] = vit_large_results
@@ -518,7 +676,8 @@ def main(args):
         qc_results = evaluate_nn_model(
             args.qubit_centric_model, 'QUBIT_CENTRIC',
             Hx, Hz, Lx, Lz, args.p_errors,
-            n_shots=args.n_shots, y_ratio=args.y_ratio, device=device
+            n_shots=args.n_shots, y_ratio=args.y_ratio, device=device,
+            batch_size=args.batch_size
         )
         if qc_results:
             all_results['QubitCentric'] = qc_results
@@ -528,7 +687,8 @@ def main(args):
         lut_res_results = evaluate_nn_model(
             args.lut_residual_model, 'LUT_RESIDUAL',
             Hx, Hz, Lx, Lz, args.p_errors,
-            n_shots=args.n_shots, y_ratio=args.y_ratio, device=device
+            n_shots=args.n_shots, y_ratio=args.y_ratio, device=device,
+            batch_size=args.batch_size
         )
         if lut_res_results:
             all_results['LUT_Residual'] = lut_res_results
@@ -538,7 +698,8 @@ def main(args):
         lut_concat_results = evaluate_nn_model(
             args.lut_concat_model, 'LUT_CONCAT',
             Hx, Hz, Lx, Lz, args.p_errors,
-            n_shots=args.n_shots, y_ratio=args.y_ratio, device=device
+            n_shots=args.n_shots, y_ratio=args.y_ratio, device=device,
+            batch_size=args.batch_size
         )
         if lut_concat_results:
             all_results['LUT_Concat'] = lut_concat_results
@@ -548,7 +709,8 @@ def main(args):
         diamond_results = evaluate_nn_model(
             args.diamond_model, 'DIAMOND',
             Hx, Hz, Lx, Lz, args.p_errors,
-            n_shots=args.n_shots, y_ratio=args.y_ratio, device=device
+            n_shots=args.n_shots, y_ratio=args.y_ratio, device=device,
+            batch_size=args.batch_size
         )
         if diamond_results:
             all_results['Diamond'] = diamond_results
@@ -558,7 +720,8 @@ def main(args):
         diamond_deep_results = evaluate_nn_model(
             args.diamond_deep_model, 'DIAMOND_DEEP',
             Hx, Hz, Lx, Lz, args.p_errors,
-            n_shots=args.n_shots, y_ratio=args.y_ratio, device=device
+            n_shots=args.n_shots, y_ratio=args.y_ratio, device=device,
+            batch_size=args.batch_size
         )
         if diamond_deep_results:
             all_results['Diamond_Deep'] = diamond_deep_results
@@ -568,7 +731,8 @@ def main(args):
         vit_qc_results = evaluate_nn_model(
             args.vit_qubit_centric_model, 'VIT_QUBIT_CENTRIC',
             Hx, Hz, Lx, Lz, args.p_errors,
-            n_shots=args.n_shots, y_ratio=args.y_ratio, device=device
+            n_shots=args.n_shots, y_ratio=args.y_ratio, device=device,
+            batch_size=args.batch_size
         )
         if vit_qc_results:
             all_results['ViT_QubitCentric'] = vit_qc_results
@@ -578,7 +742,8 @@ def main(args):
         vit_lut_results = evaluate_nn_model(
             args.vit_lut_concat_model, 'VIT_LUT_CONCAT',
             Hx, Hz, Lx, Lz, args.p_errors,
-            n_shots=args.n_shots, y_ratio=args.y_ratio, device=device
+            n_shots=args.n_shots, y_ratio=args.y_ratio, device=device,
+            batch_size=args.batch_size
         )
         if vit_lut_results:
             all_results['ViT_LUT_Concat'] = vit_lut_results
@@ -632,6 +797,11 @@ if __name__ == '__main__':
                         help='Path to trained ViT_QubitCentric model')
     parser.add_argument('--vit_lut_concat_model', type=str, default=None,
                         help='Path to trained ViT_LUT_Concat model')
+    parser.add_argument('--device', type=str, default='auto',
+                        choices=['cpu', 'cuda', 'xpu', 'auto'],
+                        help='Device to use (cpu, cuda, xpu, or auto for auto-detection)')
+    parser.add_argument('--batch_size', type=int, default=1024,
+                        help='Batch size for GPU/XPU inference (default: 1024)')
 
     args = parser.parse_args()
     main(args)
