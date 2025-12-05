@@ -403,18 +403,24 @@ def evaluate_nn_model(model_path, model_type, Hx, Hz, Lx, Lz, p_errors,
                         logical_error_count += 1
 
             ler = logical_error_count / n_shots
-            avg_latency = (total_inference_time / n_shots) * 1000  # ms (per sample, amortized for batch)
+            batch_latency_ms = total_inference_time * 1000  # total time for batch
+            avg_latency = batch_latency_ms / n_shots  # per sample (amortized)
+            throughput = n_shots / total_inference_time if total_inference_time > 0 else 0
 
             results[p] = {
                 'ler': ler,
+                'batch_latency': batch_latency_ms,
                 'avg_latency': avg_latency,
+                'throughput': throughput,
                 'logical_errors': logical_error_count,
                 'total_shots': n_shots,
                 'batch_size': batch_size if use_batch else 1
             }
 
             logging.info(f"  LER: {ler:.6e}")
-            logging.info(f"  Avg Latency: {avg_latency:.6f} ms (per sample, {'batch amortized' if use_batch else 'single'})")
+            logging.info(f"  Batch Latency: {batch_latency_ms:.3f} ms ({n_shots} samples)")
+            logging.info(f"  Avg Latency: {avg_latency:.6f} ms (per sample)")
+            logging.info(f"  Throughput: {throughput:,.0f} samples/sec")
             logging.info(f"  Logical Errors: {logical_error_count}/{n_shots}")
 
     return results
