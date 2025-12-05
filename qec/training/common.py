@@ -101,7 +101,8 @@ def create_surface_code_pure_error_lut(L, error_type, device):
     Surface code를 위한 Pure error LUT 생성
     model_path.py의 _surface_cn_coordinates 로직을 참고하여 정확한 stabilizer 구조 사용
     """
-    device = torch.device('cpu')
+    if isinstance(device, str):
+        device = torch.device(device)
     print(f"Creating Surface code pure error LUT for L={L}, error_type={error_type}")
     cn_coord = _surface_cn_coordinates(L, error_type)
     total_syndromes = len(cn_coord)
