@@ -106,10 +106,16 @@ def evaluate_mwpm(Hx, Hz, Lx, Lz, p_errors, n_shots=10000, y_ratio=0.0):
         _reset_seed_for_idx(idx)  # Reset seed for each p index
         logging.info(f"\nTesting p={p:.3f}...")
         result = decoder.evaluate(p, n_shots=n_shots, y_ratio=y_ratio, verbose=True)
+
+        # Add batch latency (MWPM is sequential, so batch = avg * n_shots)
+        result['batch_latency'] = result['avg_latency'] * n_shots
+        result['throughput'] = n_shots / (result['batch_latency'] / 1000) if result['batch_latency'] > 0 else 0
         results[p] = result
 
         logging.info(f"  LER: {result['ler']:.6e}")
-        logging.info(f"  Avg Latency: {result['avg_latency']:.6f} ms")
+        logging.info(f"  Batch Latency: {result['batch_latency']:.3f} ms ({n_shots} samples)")
+        logging.info(f"  Avg Latency: {result['avg_latency']:.6f} ms (per sample)")
+        logging.info(f"  Throughput: {result['throughput']:,.0f} samples/sec")
         logging.info(f"  Logical Errors: {result['logical_errors']}/{result['total_shots']}")
 
     return results
