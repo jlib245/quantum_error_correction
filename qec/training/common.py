@@ -264,8 +264,10 @@ class QECC_Dataset(data.Dataset):
         # Syndrome measurement error probability (0 = code capacity, >0 = phenomenological)
         self.p_meas = getattr(args, 'p_meas', 0.0)
 
-        self.device = next(iter(x_error_basis.values())).device if x_error_basis else torch.device("cpu")
+        # Force dataset to operate on CPU to avoid CUDA initialization issues in DataLoader workers
+        self.device = torch.device("cpu")
 
+        # Move code matrices to CPU
         self.H_z = code.H_z.to(self.device)
         self.H_x = code.H_x.to(self.device)
         self.L_z = code.L_z.to(self.device)
@@ -274,8 +276,9 @@ class QECC_Dataset(data.Dataset):
         self.n_phys = self.H_z.shape[1]
         self.n_syndrome = self.H_z.shape[0] + self.H_x.shape[0]
 
-        self.x_error_basis_dict = x_error_basis
-        self.z_error_basis_dict = z_error_basis
+        # Move LUTs to CPU
+        self.x_error_basis_dict = {k: v.to(self.device) for k, v in x_error_basis.items()}
+        self.z_error_basis_dict = {k: v.to(self.device) for k, v in z_error_basis.items()}
 
     def generate_noise(self, p):
         # Mixed y-ratio 지원: y_ratios 리스트가 있으면 랜덤 선택
@@ -293,8 +296,8 @@ class QECC_Dataset(data.Dataset):
             e_y_np = (2*p/3 <= rand_vals) & (rand_vals < p)
             e_z_np, e_x_np = (e_z_np + e_y_np) % 2, (e_x_np + e_y_np) % 2
 
-        e_z = torch.from_numpy(e_z_np).to(self.device, dtype=torch.uint8)
-        e_x = torch.from_numpy(e_x_np).to(self.device, dtype=torch.uint8)
+        e_z = torch.from_numpy(e_z_np).to("cpu", dtype=torch.uint8)
+        e_x = torch.from_numpy(e_x_np).to("cpu", dtype=torch.uint8)
         return torch.cat([e_z, e_x])
 
     def __getitem__(self, index):
@@ -321,7 +324,7 @@ class QECC_Dataset(data.Dataset):
         if self.p_meas > 0:
             meas_error = torch.from_numpy(
                 (np.random.rand(self.n_syndrome) < self.p_meas).astype(np.float32)
-            ).to(self.device)
+            ).to("cpu")
             syndrome = (syndrome + meas_error) % 2
 
         pure_error_C = simple_decoder_C_torch(syndrome.type(torch.uint8), self.x_error_basis_dict, self.z_error_basis_dict, self.H_z, self.H_x)
