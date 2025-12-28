@@ -80,6 +80,15 @@ def main(args):
             dropout=args.dropout,
             label_smoothing=args.label_smoothing
         ).to(device)
+    elif args.model_type == 'vit':
+        from qec.models.vit import ECC_ViT
+        model = ECC_ViT(args, dropout=args.dropout, label_smoothing=args.label_smoothing).to(device)
+    elif args.model_type == 'vit-large':
+        from qec.models.vit import ECC_ViT_Large
+        model = ECC_ViT_Large(args, dropout=args.dropout, label_smoothing=args.label_smoothing).to(device)
+    elif args.model_type == 'transformer':
+        from qec.models.vit import ECC_Transformer
+        model = ECC_Transformer(args, dropout=args.dropout, label_smoothing=args.label_smoothing).to(device)
     elif args.model_type == 'vit_qubit_centric':
         from qec.models.vit import ECC_ViT_QubitCentric
         model = ECC_ViT_QubitCentric(
@@ -172,8 +181,8 @@ if __name__ == '__main__':
 
     # Model
     parser.add_argument('--model_type', type=str, default='qubit_centric',
-                        choices=['qubit_centric', 'lut_residual', 'lut_concat', 'diamond', 'diamond_deep', 'diamond_attn', 'vit_qubit_centric', 'vit_lut_concat'],
-                        help='Model type: qubit_centric, lut_residual, lut_concat, diamond, diamond_deep, diamond_attn, vit_qubit_centric, vit_lut_concat')
+                        choices=['qubit_centric', 'lut_residual', 'lut_concat', 'diamond', 'diamond_deep', 'diamond_attn', 'vit_qubit_centric', 'vit_lut_concat', 'vit', 'vit-large', 'transformer'],
+                        help='Model type: qubit_centric, lut_residual, lut_concat, diamond, diamond_deep, diamond_attn, vit_qubit_centric, vit_lut_concat, vit, vit-large, transformer')
     parser.add_argument('--d_model', type=int, default=128)
     parser.add_argument('--h', type=int, default=8, help='Number of attention heads (for ViT models)')
     parser.add_argument('--N_dec', type=int, default=6, help='Number of transformer layers (for ViT models)')
