@@ -1,7 +1,6 @@
-"""
-Common utilities for QEC training scripts.
+"Common utilities for QEC training scripts.
 Shared by transformer.py, cnn.py, ffnn.py
-"""
+"
 import random
 import os
 import logging
@@ -12,9 +11,9 @@ from torch.utils import data
 from qec.core.codes import Get_surface_Code
 
 
-# ============================================
+# ============================================ 
 # Seed & Device Setup
-# ============================================
+# ============================================ 
 
 def set_seed(seed=42):
     """Set random seeds for reproducibility."""
@@ -56,9 +55,9 @@ def setup_device(device_type):
     return device
 
 
-# ============================================
+# ============================================ 
 # Noise Generation
-# ============================================
+# ============================================ 
 
 def generate_correlated_noise(n_qubits, p_total, y_ratio=0.3):
     """
@@ -92,9 +91,9 @@ def generate_correlated_noise(n_qubits, p_total, y_ratio=0.3):
     return error_vector_X, error_vector_Z
 
 
-# ============================================
+# ============================================ 
 # LUT Generation (Surface Code)
-# ============================================
+# ============================================ 
 
 def create_surface_code_pure_error_lut(L, error_type, device):
     """
@@ -217,9 +216,9 @@ def simple_decoder_C_torch(syndrome_vector, x_error_basis, z_error_basis, H_z, H
     return torch.cat([c_z, c_x])
 
 
-# ============================================
+# ============================================ 
 # Code Loading
-# ============================================
+# ============================================ 
 
 class Code:
     """Code object for storing parity check and logical matrices."""
@@ -243,9 +242,9 @@ def load_surface_code(L, device):
     return code
 
 
-# ============================================
+# ============================================ 
 # Dataset
-# ============================================
+# ============================================ 
 
 class QECC_Dataset(data.Dataset):
     """Common dataset for QEC training.
@@ -293,9 +292,8 @@ class QECC_Dataset(data.Dataset):
             e_y_np = (2*p/3 <= rand_vals) & (rand_vals < p)
             e_z_np, e_x_np = (e_z_np + e_y_np) % 2, (e_x_np + e_y_np) % 2
 
-        e_z = torch.from_numpy(e_z_np).to(device="cpu", dtype=torch.uint8) # Force to CPU
-        e_x = torch.from_numpy(e_x_np).to(device="cpu", dtype=torch.uint8) # Force to CPU
-
+        e_z = torch.from_numpy(e_z_np).to(self.device, dtype=torch.uint8)
+        e_x = torch.from_numpy(e_x_np).to(self.device, dtype=torch.uint8)
         return torch.cat([e_z, e_x])
 
     def __getitem__(self, index):
@@ -355,9 +353,9 @@ class FixedQECC_Dataset(data.Dataset):
         return len(self.syndromes)
 
 
-# ============================================
+# ============================================ 
 # Dataset Generation & Loading
-# ============================================
+# ============================================ 
 
 def generate_and_save_dataset(code, x_error_basis, z_error_basis, p_errors,
                                n_samples, y_ratio, save_path, seed=42):
@@ -472,9 +470,9 @@ def load_dataset(load_path):
     return data['syndromes'], data['labels'], data
 
 
-# ============================================
+# ============================================ 
 # Training & Testing
-# ============================================
+# ============================================ 
 
 def train_epoch(model, device, train_loader, optimizer, epoch, LR):
     """Train for one epoch."""
@@ -542,20 +540,20 @@ def test_model(model, device, test_loader_list, ps_range_test, cum_count_lim):
         # Format output based on p value types
         if all(isinstance(p, (int, float)) for p in ps_range_test):
             logging.info('Test LER  ' + ' '.join(
-                ['p={:.2e}: {:.2e}'.format(ebno, elem) for (elem, ebno)
+                ['p={:.2e}: {:.2e}'.format(ebno, elem) for (elem, ebno) 
                  in (zip(test_loss_ler_list, ps_range_test))]))
         else:
             logging.info('Test LER  ' + ' '.join(
-                ['p={}: {:.2e}'.format(ebno, elem) for (elem, ebno)
+                ['p={}: {:.2e}'.format(ebno, elem) for (elem, ebno) 
                  in (zip(test_loss_ler_list, ps_range_test))]))
         logging.info(f'Mean LER = {np.mean(test_loss_ler_list):.3e}')
     logging.info(f'# of testing samples: {cum_samples_all}\n Test Time {time.time() - t} s\n')
     return test_loss_ler_list
 
 
-# ============================================
+# ============================================ 
 # Checkpoint
-# ============================================
+# ============================================ 
 
 def save_checkpoint(model, optimizer, scheduler, epoch, best_metric, path, metric_name='loss'):
     """Save training checkpoint."""
@@ -601,9 +599,9 @@ def load_checkpoint(path, model, optimizer, scheduler, device):
         return None, float('inf')
 
 
-# ============================================
+# ============================================ 
 # Training Loop with Validation-based Early Stopping
-# ============================================
+# ============================================ 
 
 def train_with_validation(model, device, train_loader, val_loaders, optimizer, scheduler,
                           args, ps_test):
