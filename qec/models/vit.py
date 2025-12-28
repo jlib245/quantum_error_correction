@@ -303,6 +303,99 @@ class ECC_ViT_Large(nn.Module):
         return self.criterion(pred, true_label)
 
 
+class ECC_Transformer(nn.Module):
+    """
+    Standard Transformer decoder for ECC.
+
+    Flow:
+    Syndrome (flat) -> Linear Embedding -> Transformer -> Classifier
+    """
+
+    def __init__(self, args, dropout=0.1, label_smoothing=0.0):
+        super(ECC_Transformer, self).__init__()
+        self.args = args
+        self.L = args.code_L
+
+        code = args.code
+        self.n_z = code.H_z.shape[0]
+        self.n_x = code.H_x.shape[0]
+        self.n_syndromes = self.n_z + self.n_x
+
+        # Transformer config
+        d_model = getattr(args, 'd_model', 128)
+        n_heads = getattr(args, 'h', 8)
+        n_layers = getattr(args, 'N_dec', 6)
+
+        self.d_model = d_model
+
+        # Linear embedding for syndrome
+        self.syndrome_embed = nn.Linear(1, d_model)
+
+        # CLS token
+        self.cls_token = nn.Parameter(torch.randn(1, 1, d_model) * 0.02)
+
+        # Learnable position embeddings
+        self.pos_embed = nn.Parameter(torch.randn(1, 1 + self.n_syndromes, d_model) * 0.02)
+
+        # Dropout
+        self.dropout = nn.Dropout(dropout)
+
+        # Transformer encoder
+        encoder_layer = nn.TransformerEncoderLayer(
+            d_model=d_model,
+            nhead=n_heads,
+            dim_feedforward=d_model * 4,
+            dropout=dropout,
+            activation='gelu',
+            batch_first=True
+        )
+        self.transformer = nn.TransformerEncoder(encoder_layer, num_layers=n_layers)
+
+        # Classification head
+        self.head = nn.Sequential(
+            nn.LayerNorm(d_model),
+            nn.Linear(d_model, 4)
+        )
+
+        # Loss
+        if label_smoothing > 0:
+            self.criterion = nn.CrossEntropyLoss(label_smoothing=label_smoothing)
+        else:
+            self.criterion = nn.CrossEntropyLoss()
+
+    def forward(self, x):
+        batch_size = x.shape[0]
+
+        # Encode syndrome: 0 -> -1, 1 -> 1
+        x = x * 2 - 1.0
+
+        # Linear embedding
+        x = x.unsqueeze(-1)  # (B, n_syndromes, 1)
+        x = self.syndrome_embed(x)  # (B, n_syndromes, d_model)
+
+        # Prepend CLS token
+        cls_tokens = self.cls_token.expand(batch_size, -1, -1)
+        x = torch.cat([cls_tokens, x], dim=1)  # (B, 1 + n_syndromes, d_model)
+
+        # Add position embedding
+        x = x + self.pos_embed
+        x = self.dropout(x)
+
+        # Transformer
+        x = self.transformer(x)
+
+        # Use CLS token for classification
+        x = x[:, 0]
+
+        # Classification head
+        x = self.head(x)
+
+        return x
+
+    def loss(self, pred, true_label):
+        return self.criterion(pred, true_label)
+
+
 class ECC_ViT_QubitCentric(nn.Module):
     """
     ViT with QubitCentric input representation.
@@ -466,7 +559,7 @@ class ECC_ViT_LUT_Concat(nn.Module):
         self.register_buffer('z_lut', z_lut_tensor)
 
         # Store H matrices
-        H_z_np = code.H_z.cpu().numpy() if torch.is_tensor(code.H_z) else code.H_x
+        H_z_np = code.H_z.cpu().numpy() if torch.is_tensor(code.H_z) else code.H_z
         H_x_np = code.H_x.cpu().numpy() if torch.is_tensor(code.H_x) else code.H_x
 
         self.register_buffer('H_z', torch.from_numpy(H_z_np).float())

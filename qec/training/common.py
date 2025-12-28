@@ -293,8 +293,8 @@ class QECC_Dataset(data.Dataset):
             e_y_np = (2*p/3 <= rand_vals) & (rand_vals < p)
             e_z_np, e_x_np = (e_z_np + e_y_np) % 2, (e_x_np + e_y_np) % 2
 
-        e_z = torch.from_numpy(e_z_np).to(self.device, dtype=torch.uint8)
-        e_x = torch.from_numpy(e_x_np).to(self.device, dtype=torch.uint8)
+        e_z = torch.from_numpy(e_z_np).to(device="cpu", dtype=torch.uint8)
+        e_x = torch.from_numpy(e_x_np).to(device="cpu", dtype=torch.uint8)
         return torch.cat([e_z, e_x])
 
     def __getitem__(self, index):
@@ -321,8 +321,8 @@ class QECC_Dataset(data.Dataset):
         if self.p_meas > 0:
             meas_error = torch.from_numpy(
                 (np.random.rand(self.n_syndrome) < self.p_meas).astype(np.float32)
-            ).to(self.device)
-            syndrome = (syndrome + meas_error) % 2
+            ).to(device="cpu") # Force to CPU
+            syndrome = (syndrome.to("cpu") + meas_error) % 2
 
         pure_error_C = simple_decoder_C_torch(syndrome.type(torch.uint8), self.x_error_basis_dict, self.z_error_basis_dict, self.H_z, self.H_x)
         l_physical = pure_error_C.long() ^ e_full.long()

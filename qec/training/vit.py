@@ -32,12 +32,16 @@ def main(args):
     z_error_basis_dict = create_surface_code_pure_error_lut(args.code_L, 'Z_only', device)
 
     # Create model
-    from qec.models.vit import ECC_ViT, ECC_ViT_Large
+    from qec.models.vit import ECC_ViT, ECC_ViT_Large, ECC_Transformer
 
-    if args.large:
-        model = ECC_ViT_Large(args, dropout=args.dropout, label_smoothing=args.label_smoothing).to(device)
-    else:
+    if args.model_name == 'vit':
         model = ECC_ViT(args, dropout=args.dropout, label_smoothing=args.label_smoothing).to(device)
+    elif args.model_name == 'vit-large':
+        model = ECC_ViT_Large(args, dropout=args.dropout, label_smoothing=args.label_smoothing).to(device)
+    elif args.model_name == 'transformer':
+        model = ECC_Transformer(args, dropout=args.dropout, label_smoothing=args.label_smoothing).to(device)
+    else:
+        raise ValueError(f"Unknown model name: {args.model_name}")
 
     if device.type == 'cuda' and torch.cuda.device_count() > 1:
         logging.info(f"Using {torch.cuda.device_count()} GPUs")
@@ -82,6 +86,13 @@ def main(args):
 
 
 if __name__ == '__main__':
+    # Set multiprocessing start method to 'spawn' for CUDA compatibility
+    # This must be done at the beginning of the main execution block
+    try:
+        torch.multiprocessing.set_start_method('spawn')
+    except RuntimeError:
+        pass
+
     parser = argparse.ArgumentParser(description='ViT Decoder Training')
 
     # Training
@@ -107,7 +118,7 @@ if __name__ == '__main__':
     parser.add_argument('-y', '--y_ratio', type=float, default=0.0)
 
     # Model
-    parser.add_argument('--large', action='store_true', help='Use larger ViT')
+    parser.add_argument('--model_name', type=str, default='vit', choices=['vit', 'vit-large', 'transformer'], help='Model to train')
     parser.add_argument('--N_dec', type=int, default=6)
     parser.add_argument('--d_model', type=int, default=128)
     parser.add_argument('--h', type=int, default=8)
@@ -118,11 +129,16 @@ if __name__ == '__main__':
 
     # Setup output dir
     timestamp = datetime.now().strftime('%d_%m_%Y_%H_%M_%S')
-    if args.large:
-        model_name = 'ViT_Large'
+    if args.model_name == 'vit-large':
+        model_name_str = 'ViT_Large'
+    elif args.model_name == 'vit':
+        model_name_str = 'ViT'
+    elif args.model_name == 'transformer':
+        model_name_str = 'Transformer'
     else:
-        model_name = 'ViT'
-    args.path = f'Final_Results/surface/L_{args.code_L}/y_{args.y_ratio}/{model_name}/{timestamp}'
+        # Should not happen thanks to choices in argparse
+        raise ValueError(f"Unknown model name: {args.model_name}")
+    args.path = f'Final_Results/surface/L_{args.code_L}/y_{args.y_ratio}/{model_name_str}/{timestamp}'
     os.makedirs(args.path, exist_ok=True)
 
     # Logging
