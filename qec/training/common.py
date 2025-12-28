@@ -1,6 +1,5 @@
-"Common utilities for QEC training scripts.
-Shared by transformer.py, cnn.py, ffnn.py
-"
+"Common utilities for QEC training scripts."
+
 import random
 import os
 import logging
