@@ -105,14 +105,10 @@ class Encoder(nn.Module):
         super(Encoder, self).__init__()
         self.layers = clones(layer, N)
         self.norm = LayerNorm(layer.size)
-        if N > 1:
-            self.norm2 = LayerNorm(layer.size)
 
     def forward(self, x, mask, rel_pos_bias=None):
-        for idx, layer in enumerate(self.layers, start=1):
+        for layer in self.layers:
             x = layer(x, mask, rel_pos_bias=rel_pos_bias)
-            if idx == len(self.layers) // 2 and len(self.layers) > 1:
-                x = self.norm2(x)
         return self.norm(x)
 
 
