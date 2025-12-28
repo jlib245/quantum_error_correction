@@ -293,8 +293,9 @@ class QECC_Dataset(data.Dataset):
             e_y_np = (2*p/3 <= rand_vals) & (rand_vals < p)
             e_z_np, e_x_np = (e_z_np + e_y_np) % 2, (e_x_np + e_y_np) % 2
 
-        e_z = torch.from_numpy(e_z_np).to(self.device, dtype=torch.uint8)
-        e_x = torch.from_numpy(e_x_np).to(self.device, dtype=torch.uint8)
+        e_z = torch.from_numpy(e_z_np).to(device="cpu", dtype=torch.uint8) # Force to CPU
+        e_x = torch.from_numpy(e_x_np).to(device="cpu", dtype=torch.uint8) # Force to CPU
+
         return torch.cat([e_z, e_x])
 
     def __getitem__(self, index):
