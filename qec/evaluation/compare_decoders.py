@@ -262,7 +262,15 @@ def evaluate_nn_model(model_path, model_type, Hx, Hz, Lx, Lz, p_errors,
                 return None
 
             state_dict = torch.load(model_path, map_location=device, weights_only=True)
-            model.load_state_dict(state_dict)
+
+            # Handle DataParallel wrapper
+            from collections import OrderedDict
+            new_state_dict = OrderedDict()
+            for k, v in state_dict.items():
+                name = k[7:] if k.startswith('module.') else k  # remove `module.`
+                new_state_dict[name] = v
+            model.load_state_dict(new_state_dict)
+
             model.eval()
             logging.info("Model loaded successfully (state_dict)")
         except Exception as e2:
