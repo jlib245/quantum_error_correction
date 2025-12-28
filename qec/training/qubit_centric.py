@@ -151,6 +151,13 @@ def main(args):
 
 
 if __name__ == '__main__':
+    # Set multiprocessing start method to 'spawn' for CUDA compatibility
+    # This must be done at the beginning of the main execution block
+    try:
+        torch.multiprocessing.set_start_method('spawn')
+    except RuntimeError:
+        pass
+
     parser = argparse.ArgumentParser(description='Qubit-Centric CNN Decoder Training')
 
     # Training
