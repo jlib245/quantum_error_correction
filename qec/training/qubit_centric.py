@@ -91,6 +91,15 @@ def main(args):
             args, x_error_basis_dict, z_error_basis_dict,
             dropout=args.dropout, label_smoothing=args.label_smoothing
         ).to(device)
+    elif args.model_type == 'vit':
+        from qec.models.vit import ECC_ViT
+        model = ECC_ViT(args, dropout=args.dropout, label_smoothing=args.label_smoothing).to(device)
+    elif args.model_type == 'vit-large':
+        from qec.models.vit import ECC_ViT_Large
+        model = ECC_ViT_Large(args, dropout=args.dropout, label_smoothing=args.label_smoothing).to(device)
+    elif args.model_type == 'transformer':
+        from qec.models.vit import ECC_Transformer
+        model = ECC_Transformer(args, dropout=args.dropout, label_smoothing=args.label_smoothing).to(device)
     else:
         raise ValueError(f"Unknown model type: {args.model_type}")
 
@@ -142,7 +151,7 @@ def main(args):
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='Qubit-Centric CNN Decoder Training')
+    parser = argparse.ArgumentParser(description='QEC Decoder Training Script')
 
     # Training
     parser.add_argument('--epochs', type=int, default=50)
@@ -172,13 +181,16 @@ if __name__ == '__main__':
 
     # Model
     parser.add_argument('--model_type', type=str, default='qubit_centric',
-                        choices=['qubit_centric', 'lut_residual', 'lut_concat', 'diamond', 'diamond_deep', 'diamond_attn', 'vit_qubit_centric', 'vit_lut_concat'],
-                        help='Model type: qubit_centric, lut_residual, lut_concat, diamond, diamond_deep, diamond_attn, vit_qubit_centric, vit_lut_concat')
+                        choices=['qubit_centric', 'lut_residual', 'lut_concat', 'diamond', 'diamond_deep', 'diamond_attn', 
+                                 'vit_qubit_centric', 'vit_lut_concat', 'vit', 'vit-large', 'transformer'],
+                        help='Model architecture to train')
     parser.add_argument('--d_model', type=int, default=128)
-    parser.add_argument('--h', type=int, default=8, help='Number of attention heads (for ViT models)')
-    parser.add_argument('--N_dec', type=int, default=6, help='Number of transformer layers (for ViT models)')
+    parser.add_argument('--h', type=int, default=8, help='Number of attention heads (for Transformer/ViT models)')
+    parser.add_argument('--N_dec', type=int, default=6, help='Number of transformer layers (for Transformer/ViT models)')
     parser.add_argument('--dropout', type=float, default=0.2)
     parser.add_argument('--label_smoothing', type=float, default=0.1)
+    parser.add_argument('--no_g', type=int, default=0, help='Argument for Transformer model')
+
 
     args = parser.parse_args()
 
