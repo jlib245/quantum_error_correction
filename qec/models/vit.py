@@ -185,9 +185,9 @@ class ECC_ViT_Large(nn.Module):
         self.x_coord_map = compute_stabilizer_positions_from_H(H_x_np, self.L)
 
         # Larger config
-        d_model = getattr(args, 'd_model', 128)
+        d_model = getattr(args, 'd_model', 256)
         n_heads = getattr(args, 'h', 8)
-        n_layers = getattr(args, 'N_dec', 6)
+        n_layers = getattr(args, 'N_dec', 8)
 
         self.d_model = d_model
         self.n_patches = self.L * self.L
