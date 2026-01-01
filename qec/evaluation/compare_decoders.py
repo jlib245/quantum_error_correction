@@ -1,5 +1,6 @@
 """
-Compare different decoders: MWPM vs Neural Network models
+Compare different decoders: MWPM vs Neural Network models (Including HQMT & Jung CNN)
+Supports Measurement Error simulation for 3D/Stacked models.
 """
 import argparse
 import os
@@ -9,24 +10,15 @@ from datetime import datetime
 import logging
 from pathlib import Path
 import matplotlib.pyplot as plt
+import time
+from tqdm import tqdm
 
 from qec.core.codes import Get_surface_Code
 from qec.decoders.mwpm import MWPM_Decoder
 
 
 def generate_noise_batch(n_phys, p, y_ratio, batch_size, device='cpu'):
-    """Generate batch of correlated noise on device.
-
-    Args:
-        n_phys: Number of physical qubits
-        p: Total error probability
-        y_ratio: Ratio of Y errors (0 to 1)
-        batch_size: Number of samples to generate
-        device: torch device
-
-    Returns:
-        e_x, e_z: X and Z error tensors of shape (batch_size, n_phys)
-    """
+    """Generate batch of correlated noise on device."""
     if y_ratio > 0:
         # Correlated noise
         p_y = p * y_ratio
@@ -57,13 +49,16 @@ class Code:
     pass
 
 
-def get_experiment_dir(L, y_ratio):
+def get_experiment_dir(L, y_ratio, p_meas):
     """Get experiment directory based on configuration."""
     base_dir = "experiments"
     if y_ratio > 0:
         noise_type = f"L{L}_correlated_y{int(y_ratio*100):02d}"
     else:
         noise_type = f"L{L}_independent"
+    
+    if p_meas > 0:
+        noise_type += f"_pmeas{p_meas}"
 
     exp_dir = os.path.join(base_dir, noise_type)
     os.makedirs(exp_dir, exist_ok=True)
@@ -94,7 +89,7 @@ def _reset_seed_for_idx(idx, base_seed=20_000_000):
 
 
 def evaluate_mwpm(Hx, Hz, Lx, Lz, p_errors, n_shots=10000, y_ratio=0.0):
-    """Evaluate MWPM decoder."""
+    """Evaluate MWPM decoder (2D only)."""
     logging.info("\n" + "="*60)
     logging.info("MWPM Decoder Evaluation")
     logging.info("="*60)
@@ -122,7 +117,7 @@ def evaluate_mwpm(Hx, Hz, Lx, Lz, p_errors, n_shots=10000, y_ratio=0.0):
 
 
 def evaluate_nn_model(model_path, model_type, Hx, Hz, Lx, Lz, p_errors,
-                      n_shots=10000, y_ratio=0.0, device='cuda', batch_size=1024):
+                      n_shots=10000, y_ratio=0.0, p_meas=0.0, device='cuda', batch_size=1024):
     """Evaluate neural network decoder."""
     logging.info("\n" + "="*60)
     logging.info(f"{model_type.upper()} Model Evaluation")
@@ -131,7 +126,6 @@ def evaluate_nn_model(model_path, model_type, Hx, Hz, Lx, Lz, p_errors,
 
     # Import dataset and evaluation functions
     from qec.training.common import (
-        QECC_Dataset,
         create_surface_code_pure_error_lut,
         simple_decoder_C_torch
     )
@@ -156,13 +150,23 @@ def evaluate_nn_model(model_path, model_type, Hx, Hz, Lx, Lz, p_errors,
     code.k = code.n - code.pc_matrix.shape[0]
     code.code_type = 'surface'
 
-    # Create args object
+    # Create args object with necessary defaults
     class Args:
         pass
     args = Args()
     args.y_ratio = y_ratio
     args.code = code
     args.no_g = 1
+    args.p_meas = p_meas # Add p_meas to args
+    args.code_L = int(np.sqrt(Hx.shape[1]))
+    
+    # HQMT specific defaults
+    args.d_model = 128
+    args.n_heads = 4
+    args.dim_feedforward = 512
+    args.n_layers_stage1 = 2
+    args.n_layers_stage2 = 4
+    args.use_pos_enc = 1
 
     # Load model
     if not os.path.exists(model_path):
@@ -175,23 +179,11 @@ def evaluate_nn_model(model_path, model_type, Hx, Hz, Lx, Lz, p_errors,
         model = torch.load(model_path, map_location=device, weights_only=False)
         model.eval()
         logging.info("Model loaded successfully (full model)")
-
-        # For ViT models, recompute coord maps to match current code
-        if model_type.upper() in ['VIT', 'VIT_LARGE', 'VIT_DUALGRID']:
-            from qec.models.vit import compute_stabilizer_positions_from_H
-            L = int(np.sqrt(Hx.shape[1]))
-            model.L = L
-            model.grid_size = L
-            model.n_z = Hz.shape[0]
-            model.n_x = Hx.shape[0]
-            model.z_coord_map = compute_stabilizer_positions_from_H(Hz, L)
-            model.x_coord_map = compute_stabilizer_positions_from_H(Hx, L)
-            # For DualGrid, also update H matrices
-            if model_type.upper() == 'VIT_DUALGRID':
-                device = next(model.parameters()).device
-                model.H_z = torch.from_numpy(Hz).float().to(device)
-                model.H_x = torch.from_numpy(Hx).float().to(device)
-                model.n_qubits = Hx.shape[1]
+        
+        # Ensure model has correct attributes for inference
+        if hasattr(model, 'args'):
+            model.args.p_meas = p_meas # Update inference p_meas
+            
     except Exception as e:
         logging.info(f"Failed to load as full model: {e}")
         logging.info("Trying to load as state_dict...")
@@ -202,72 +194,35 @@ def evaluate_nn_model(model_path, model_type, Hx, Hz, Lx, Lz, p_errors,
             if model_type.upper() == 'FFNN':
                 from qec.models.ffnn import ECC_FFNN
                 model = ECC_FFNN(args, dropout=0)
-            elif model_type.upper() == 'TRANSFORMER':
-                from qec.models.transformer import ECC_Transformer
-                model = ECC_Transformer(args, dropout=0)
             elif model_type.upper() == 'CNN':
                 from qec.models.cnn import ECC_CNN
                 model = ECC_CNN(args, dropout=0)
-            elif model_type.upper() == 'CNN_LARGE':
-                from qec.models.cnn import ECC_CNN_Large
-                model = ECC_CNN_Large(args, dropout=0)
             elif model_type.upper() == 'VIT':
                 from qec.models.vit import ECC_ViT
-                args.code_L = int(np.sqrt(Hx.shape[1]))
                 model = ECC_ViT(args, dropout=0)
-            elif model_type.upper() == 'VIT_LARGE':
-                from qec.models.vit import ECC_ViT_Large
-                args.code_L = int(np.sqrt(Hx.shape[1]))
-                model = ECC_ViT_Large(args, dropout=0)
-            elif model_type.upper() == 'QUBIT_CENTRIC':
-                from qec.models.qubit_centric import ECC_QubitCentric
-                args.code_L = int(np.sqrt(Hx.shape[1]))
-                model = ECC_QubitCentric(args, dropout=0)
-            elif model_type.upper() == 'LUT_RESIDUAL':
-                from qec.models.qubit_centric import ECC_LUT_Residual
-                args.code_L = int(np.sqrt(Hx.shape[1]))
-                model = ECC_LUT_Residual(args, x_error_basis, z_error_basis, dropout=0)
-            elif model_type.upper() == 'LUT_CONCAT':
-                from qec.models.qubit_centric import ECC_LUT_Concat
-                args.code_L = int(np.sqrt(Hx.shape[1]))
-                model = ECC_LUT_Concat(args, x_error_basis, z_error_basis, dropout=0)
-            elif model_type.upper() == 'DIAMOND':
-                from qec.models.diamond_cnn import ECC_DiamondCNN
-                args.code_L = int(np.sqrt(Hx.shape[1]))
-                model = ECC_DiamondCNN(
+            elif model_type.upper() == 'JUNG_CNN':
+                from qec.models.jung_cnn import JungCNNDecoder
+                model = JungCNNDecoder(args, dropout=0, label_smoothing=0)
+            elif model_type.upper() == 'HQMT':
+                from qec.models.hqmt import HQMT
+                model = HQMT(
                     args,
                     x_error_lut=x_error_basis,
                     z_error_lut=z_error_basis,
                     dropout=0
                 )
-            elif model_type.upper() == 'DIAMOND_DEEP':
-                from qec.models.diamond_cnn import ECC_DiamondCNN_Deep
-                args.code_L = int(np.sqrt(Hx.shape[1]))
-                model = ECC_DiamondCNN_Deep(
-                    args,
-                    x_error_lut=x_error_basis,
-                    z_error_lut=z_error_basis,
-                    dropout=0
-                )
-            elif model_type.upper() == 'VIT_QUBIT_CENTRIC':
-                from qec.models.vit import ECC_ViT_QubitCentric
-                args.code_L = int(np.sqrt(Hx.shape[1]))
-                model = ECC_ViT_QubitCentric(args, dropout=0)
-            elif model_type.upper() == 'VIT_LUT_CONCAT':
-                from qec.models.vit import ECC_ViT_LUT_Concat
-                args.code_L = int(np.sqrt(Hx.shape[1]))
-                model = ECC_ViT_LUT_Concat(args, x_error_basis, z_error_basis, dropout=0)
+            # ... (Add other models as needed) ...
             else:
-                logging.error(f"Unknown model type: {model_type}")
+                logging.error(f"Unknown model type for state_dict loading: {model_type}")
                 return None
 
             state_dict = torch.load(model_path, map_location=device, weights_only=True)
-
+            
             # Handle DataParallel wrapper
             from collections import OrderedDict
             new_state_dict = OrderedDict()
             for k, v in state_dict.items():
-                name = k[7:] if k.startswith('module.') else k  # remove `module.`
+                name = k[7:] if k.startswith('module.') else k
                 new_state_dict[name] = v
             model.load_state_dict(new_state_dict)
 
@@ -277,551 +232,246 @@ def evaluate_nn_model(model_path, model_type, Hx, Hz, Lx, Lz, p_errors,
             logging.error(f"Failed to load model as state_dict: {e2}")
             return None
 
-    if model is None:
-        logging.error("Failed to load model")
-        return None
-
+    model.to(device)
     results = {}
     n_phys = Hx.shape[1]
 
-    # Determine if we should use batch inference (GPU/XPU only)
+    # Determine inference mode
     use_batch = device.type in ['cuda', 'xpu']
     if not use_batch:
         batch_size = 1
 
-    if use_batch:
-        logging.info(f"Using batch inference (batch_size={batch_size})")
-    else:
-        logging.info("Using single-sample inference (CPU mode)")
-
-    import time
-    from tqdm import tqdm
+    logging.info(f"Inference Mode: {'Batch' if use_batch else 'Single'}")
+    if p_meas > 0:
+        logging.info(f"Simulating Measurement Error (p_meas={p_meas}) with {args.code_L + 1} rounds")
 
     with torch.no_grad():
         for idx, p in enumerate(p_errors):
-            _reset_seed_for_idx(idx)  # Reset seed for each p index
+            _reset_seed_for_idx(idx)
             logging.info(f"\nTesting p={p:.3f}...")
 
             logical_error_count = 0
             total_inference_time = 0
 
-            if use_batch:
-                # Batch inference for GPU/XPU
-                n_batches = (n_shots + batch_size - 1) // batch_size
+            n_batches = (n_shots + batch_size - 1) // batch_size
 
-                for batch_idx in tqdm(range(n_batches)):
-                    current_batch_size = min(batch_size, n_shots - batch_idx * batch_size)
+            for batch_idx in tqdm(range(n_batches)):
+                current_batch_size = min(batch_size, n_shots - batch_idx * batch_size)
 
-                    # Generate batch noise on device
-                    e_x, e_z = generate_noise_batch(n_phys, p, y_ratio, current_batch_size, device)
+                # 1. Generate Physical Errors (Data Qubits)
+                e_x, e_z = generate_noise_batch(n_phys, p, y_ratio, current_batch_size, device)
+                e_full = torch.cat([e_z, e_x], dim=1)
 
-                    # Calculate syndromes (batch)
-                    # s_z = H_z @ e_x^T, s_x = H_x @ e_z^T
-                    s_z = (code.H_z.float() @ e_x.float().T).T % 2  # (batch, n_z_stab)
-                    s_x = (code.H_x.float() @ e_z.float().T).T % 2  # (batch, n_x_stab)
-                    syndromes = torch.cat([s_z, s_x], dim=1)  # (batch, n_stab)
+                # 2. Calculate Perfect Syndromes
+                s_z_perfect = (code.H_z.float() @ e_x.float().T).T % 2
+                s_x_perfect = (code.H_x.float() @ e_z.float().T).T % 2
+                syndrome_perfect = torch.cat([s_z_perfect, s_x_perfect], dim=1)
 
-                    # Batch NN prediction
-                    if torch.cuda.is_available():
-                        torch.cuda.synchronize()
-                    elif hasattr(torch, 'xpu') and torch.xpu.is_available():
-                        torch.xpu.synchronize()
+                # 3. Simulate Measurement Errors if p_meas > 0
+                if p_meas > 0:
+                    # Time steps: usually L or L+1 for fault tolerance
+                    time_steps = args.code_L + 1
+                    syndromes_list = []
+                    
+                    # Simply repeat perfect syndrome and add measurement noise
+                    # (Phenomenological noise model assumption for simple eval)
+                    for t in range(time_steps):
+                        meas_noise = (torch.rand_like(syndrome_perfect) < p_meas).float()
+                        s_noisy = (syndrome_perfect + meas_noise) % 2
+                        syndromes_list.append(s_noisy)
+                    
+                    # Stack: (Batch, Time, n_stab)
+                    syndromes_input = torch.stack(syndromes_list, dim=1)
+                else:
+                    # Code Capacity: (Batch, n_stab)
+                    syndromes_input = syndrome_perfect
 
-                    start_time = time.perf_counter()
-                    outputs = model(syndromes.float())
-                    _, predicted = torch.max(outputs.data, 1)
+                # 4. Neural Network Inference
+                if torch.cuda.is_available(): torch.cuda.synchronize()
+                
+                start_time = time.perf_counter()
+                outputs = model(syndromes_input.float())
+                
+                # Check output format (some models return tuple)
+                if isinstance(outputs, tuple):
+                    outputs = outputs[0]
+                    
+                _, predicted = torch.max(outputs.data, 1)
+                
+                if torch.cuda.is_available(): torch.cuda.synchronize()
+                end_time = time.perf_counter()
+                total_inference_time += (end_time - start_time)
 
-                    if torch.cuda.is_available():
-                        torch.cuda.synchronize()
-                    elif hasattr(torch, 'xpu') and torch.xpu.is_available():
-                        torch.xpu.synchronize()
-
-                    end_time = time.perf_counter()
-                    total_inference_time += (end_time - start_time)
-
-                    # Compute ground truth (batch)
-                    e_full = torch.cat([e_z, e_x], dim=1)  # (batch, 2*n_phys)
-
-                    # Get pure error for each syndrome in batch
-                    for i in range(current_batch_size):
-                        syndrome_i = syndromes[i].type(torch.uint8)
-                        pure_error_C = simple_decoder_C_torch(
-                            syndrome_i,
-                            x_error_basis,
-                            z_error_basis,
-                            code.H_z,
-                            code.H_x
-                        )
-                        l_physical = pure_error_C.long() ^ e_full[i].long()
-
-                        l_z_physical = l_physical[:n_phys]
-                        l_x_physical = l_physical[n_phys:]
-
-                        l_x_flip = (code.L_z.float() @ l_x_physical.float()) % 2
-                        l_z_flip = (code.L_x.float() @ l_z_physical.float()) % 2
-
-                        true_class_index = (l_z_flip * 2 + l_x_flip).long()
-
-                        if predicted[i].item() != true_class_index.item():
-                            logical_error_count += 1
-            else:
-                # Single-sample inference for CPU
-                from qec.decoders.mwpm import generate_correlated_noise
-
-                for _ in tqdm(range(n_shots)):
-                    # Generate noise
-                    if y_ratio > 0:
-                        e_x_np, e_z_np = generate_correlated_noise(n_phys, p, y_ratio)
-                    else:
-                        rand_vals = np.random.rand(n_phys)
-                        e_z_np = (rand_vals < p/3)
-                        e_x_np = (p/3 <= rand_vals) & (rand_vals < 2*p/3)
-                        e_y_np = (2*p/3 <= rand_vals) & (rand_vals < p)
-                        e_z_np, e_x_np = (e_z_np + e_y_np) % 2, (e_x_np + e_y_np) % 2
-
-                    e_z = torch.from_numpy(e_z_np).to(device, dtype=torch.uint8)
-                    e_x = torch.from_numpy(e_x_np).to(device, dtype=torch.uint8)
-                    e_full = torch.cat([e_z, e_x])
-
-                    # Calculate syndrome
-                    s_z_actual = (code.H_z.float() @ e_x.float()) % 2
-                    s_x_actual = (code.H_x.float() @ e_z.float()) % 2
-                    syndrome = torch.cat([s_z_actual, s_x_actual])
-
-                    # NN prediction
-                    start_time = time.perf_counter()
-                    outputs = model(syndrome.float().unsqueeze(0))
-                    _, predicted = torch.max(outputs.data, 1)
-                    end_time = time.perf_counter()
-                    total_inference_time += (end_time - start_time)
-
-                    # Get ground truth
+                # 5. Check Logical Errors (Ground Truth)
+                # For decoding, we use the final round or perfect syndrome to check correction
+                # In simple classification, we check if predicted class matches actual logical error class
+                
+                # Use the last noisy syndrome or perfect syndrome for standard decoder check?
+                # For "Classifiers" (High-level), we compare Predicted Logical Class vs Actual Logical Error
+                
+                # Use perfect syndrome for ground truth lookup (since we want to correct data errors)
+                for i in range(current_batch_size):
+                    # Use perfect syndrome to find matching pure error
+                    syndrome_i = syndrome_perfect[i].type(torch.uint8)
+                    
                     pure_error_C = simple_decoder_C_torch(
-                        syndrome.type(torch.uint8),
+                        syndrome_i,
                         x_error_basis,
                         z_error_basis,
                         code.H_z,
                         code.H_x
                     )
-                    l_physical = pure_error_C.long() ^ e_full.long()
+                    
+                    # Calculate residual error
+                    l_physical = pure_error_C.long() ^ e_full[i].long()
 
                     l_z_physical = l_physical[:n_phys]
                     l_x_physical = l_physical[n_phys:]
 
+                    # Check logical operators
                     l_x_flip = (code.L_z.float() @ l_x_physical.float()) % 2
                     l_z_flip = (code.L_x.float() @ l_z_physical.float()) % 2
 
                     true_class_index = (l_z_flip * 2 + l_x_flip).long()
 
-                    if predicted.item() != true_class_index.item():
+                    if predicted[i].item() != true_class_index.item():
                         logical_error_count += 1
 
             ler = logical_error_count / n_shots
-            batch_latency_ms = total_inference_time * 1000  # total time for batch
-            avg_latency = batch_latency_ms / n_shots  # per sample (amortized)
+            batch_latency_ms = total_inference_time * 1000
+            avg_latency = batch_latency_ms / n_shots
             throughput = n_shots / total_inference_time if total_inference_time > 0 else 0
 
             results[p] = {
                 'ler': ler,
-                'batch_latency': batch_latency_ms,
-                'avg_latency': avg_latency,
-                'throughput': throughput,
-                'logical_errors': logical_error_count,
-                'total_shots': n_shots,
-                'batch_size': batch_size if use_batch else 1
+                'avg_latency': avg_latency
             }
 
             logging.info(f"  LER: {ler:.6e}")
-            logging.info(f"  Batch Latency: {batch_latency_ms:.3f} ms ({n_shots} samples)")
-            logging.info(f"  Avg Latency: {avg_latency:.6f} ms (per sample)")
-            logging.info(f"  Throughput: {throughput:,.0f} samples/sec")
+            logging.info(f"  Avg Latency: {avg_latency:.6f} ms")
             logging.info(f"  Logical Errors: {logical_error_count}/{n_shots}")
 
     return results
 
 
 def print_comparison_table(results_dict):
-    """Print comparison table of all decoders."""
+    """Print comparison table."""
     logging.info("\n" + "="*80)
     logging.info("COMPARISON SUMMARY")
     logging.info("="*80)
 
-    # Get all p values
     p_values = sorted(list(next(iter(results_dict.values())).keys()))
 
-    # Print header
     header = f"{'p_error':<12}"
     for decoder_name in results_dict.keys():
-        header += f"{decoder_name + ' LER':<20}{decoder_name + ' Latency(ms)':<25}"
+        header += f"{decoder_name + ' LER':<20}"
     logging.info(header)
     logging.info("-" * 80)
 
-    # Print data
     for p in p_values:
         row = f"{p:<12.3f}"
         for decoder_name, results in results_dict.items():
             if p in results:
                 ler = results[p]['ler']
-                latency = results[p]['avg_latency']
-                row += f"{ler:<20.6e}{latency:<25.6f}"
+                row += f"{ler:<20.6e}"
             else:
-                row += f"{'N/A':<20}{'N/A':<25}"
+                row += f"{'N/A':<20}"
         logging.info(row)
-
     logging.info("="*80)
 
 
 def plot_comparison_graphs(results_dict, save_dir, L, y_ratio):
-    """Plot and save LER and PER comparison graphs."""
-    # Get all p values
+    """Plot graphs including HQMT and Jung CNN."""
     p_values = sorted(list(next(iter(results_dict.values())).keys()))
+    fig, ax1 = plt.subplots(1, 1, figsize=(8, 6))
 
-    # Create figure with 2 subplots
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 5))
-
-    # Color and marker styles for different decoders
-    # Regular models: solid lines with circle-like markers
-    # Code Capacity models: dashed lines with different markers
     styles = {
-        # Classical decoder
-        'MWPM': {'color': '#000000', 'marker': 'o', 'linestyle': '-'},  # black
-
-        # Regular models (solid lines) - warm colors
-        'Transformer': {'color': '#1f77b4', 'marker': 's', 'linestyle': '-'},  # blue
-        'FFNN': {'color': '#d62728', 'marker': '^', 'linestyle': '-'},  # red
-        'CNN': {'color': '#2ca02c', 'marker': 'd', 'linestyle': '-'},  # green
-        'CNN_Large': {'color': '#ff7f0e', 'marker': 'v', 'linestyle': '-'},  # orange
-        'ViT': {'color': '#9467bd', 'marker': 'p', 'linestyle': '-'},  # purple
-        'ViT_Large': {'color': '#8c564b', 'marker': 'h', 'linestyle': '-'},  # brown
-
-        # Code Capacity models (dashed lines) - cool/distinct colors
-        'Diamond': {'color': '#17becf', 'marker': 'D', 'linestyle': '--'},  # cyan
-        'Diamond_Deep': {'color': '#bcbd22', 'marker': 'H', 'linestyle': '--'},  # olive
-        'LUT_Concat': {'color': '#e377c2', 'marker': 'P', 'linestyle': '--'},  # pink
-        'LUT_Residual': {'color': '#7f7f7f', 'marker': 'X', 'linestyle': '--'},  # gray
-        'QubitCentric': {'color': '#aec7e8', 'marker': '<', 'linestyle': '--'},  # light blue
-        'ViT_QubitCentric': {'color': '#ffbb78', 'marker': '>', 'linestyle': '--'},  # light orange
-        'ViT_LUT_Concat': {'color': '#98df8a', 'marker': '*', 'linestyle': '--'},  # light green
+        'MWPM': {'color': 'black', 'marker': 'o', 'linestyle': '-'},
+        'FFNN': {'color': 'red', 'marker': '^', 'linestyle': '-'},
+        'CNN': {'color': 'green', 'marker': 'd', 'linestyle': '-'},
+        'ViT': {'color': 'purple', 'marker': 'p', 'linestyle': '-'},
+        
+        # New Models
+        'Jung_CNN': {'color': 'blue', 'marker': 'X', 'linestyle': '--', 'linewidth': 2},
+        'HQMT': {'color': 'navy', 'marker': '*', 'linestyle': '-.', 'linewidth': 2},
     }
 
-    # Plot LER (Logical Error Rate)
     for decoder_name, results in results_dict.items():
         lers = [results[p]['ler'] for p in p_values]
-        style = styles.get(decoder_name, {'color': 'black', 'marker': 'x', 'linestyle': '-'})
-        ax1.plot(p_values, lers,
-                label=decoder_name,
-                color=style['color'],
-                marker=style['marker'],
-                linestyle=style['linestyle'],
-                linewidth=2,
-                markersize=8)
+        style = styles.get(decoder_name, {'color': 'gray', 'marker': 's', 'linestyle': ':'})
+        ax1.plot(p_values, lers, label=decoder_name, **style)
 
-    ax1.set_xlabel('Physical Error Rate (p)', fontsize=12)
-    ax1.set_ylabel('Logical Error Rate (LER)', fontsize=12)
-    ax1.set_title(f'Logical Error Rate Comparison (L={L}, y_ratio={y_ratio})', fontsize=13, fontweight='bold')
+    ax1.set_xlabel('Physical Error Rate (p)')
+    ax1.set_ylabel('Logical Error Rate (LER)')
+    ax1.set_title(f'Decoder Comparison (L={L})')
     ax1.grid(True, alpha=0.3)
-    ax1.legend(fontsize=10)
+    ax1.legend()
     ax1.set_yscale('log')
+    ax1.set_xscale('log')
 
-    # Plot PER (Physical Error Rate vs LER - threshold visualization)
-    for decoder_name, results in results_dict.items():
-        lers = [results[p]['ler'] for p in p_values]
-        style = styles.get(decoder_name, {'color': 'black', 'marker': 'x', 'linestyle': '-'})
-        ax2.plot(p_values, lers,
-                label=decoder_name,
-                color=style['color'],
-                marker=style['marker'],
-                linestyle=style['linestyle'],
-                linewidth=2,
-                markersize=8)
-
-    # Add reference line (y=x) to visualize sub-threshold regime
-    ax2.plot(p_values, p_values, 'k:', label='y=x (threshold ref)', linewidth=1.5)
-
-    ax2.set_xlabel('Physical Error Rate (p)', fontsize=12)
-    ax2.set_ylabel('Logical Error Rate (LER)', fontsize=12)
-    ax2.set_title(f'Error Rate vs Threshold (L={L}, y_ratio={y_ratio})', fontsize=13, fontweight='bold')
-    ax2.grid(True, alpha=0.3)
-    ax2.legend(fontsize=10)
-    ax2.set_xscale('log')
-    ax2.set_yscale('log')
-
-    plt.tight_layout()
-
-    # Save plot
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     plot_file = os.path.join(save_dir, f'comparison_plot_{timestamp}.png')
-    plt.savefig(plot_file, dpi=300, bbox_inches='tight')
-    logging.info(f"\nPlot saved to: {plot_file}")
-
-    # Close the figure to free memory
+    plt.savefig(plot_file, dpi=300)
+    logging.info(f"Plot saved: {plot_file}")
     plt.close(fig)
-
-    return plot_file
 
 
 def main(args):
-    # Fix random seeds for reproducibility
-    # Use large offset to ensure no overlap with training (seed 42~) or test (seed 10M~)
     EVAL_SEED = 20_000_000
     np.random.seed(EVAL_SEED)
     torch.manual_seed(EVAL_SEED)
-    if torch.cuda.is_available():
-        torch.cuda.manual_seed_all(EVAL_SEED)
 
-    # Setup experiment directory
-    exp_dir = get_experiment_dir(args.L, args.y_ratio)
-    log_file = setup_logging(exp_dir)
+    exp_dir = get_experiment_dir(args.L, args.y_ratio, args.p_meas)
+    setup_logging(exp_dir)
 
-    logging.info("Decoder Comparison Script")
-    logging.info(f"Code distance L={args.L}")
-    logging.info(f"Y-ratio: {args.y_ratio}")
-    logging.info(f"Test shots per p: {args.n_shots}")
-    logging.info(f"Error rates: {args.p_errors}")
-
-    # Setup device based on args
-    def check_xpu_available():
-        """Check if XPU is available (Intel GPU via PyTorch 2.9+ native support)"""
-        try:
-            if hasattr(torch, 'xpu') and torch.xpu.is_available():
-                return True
-        except Exception:
-            pass
-        return False
-
-    if args.device == 'auto':
-        if torch.cuda.is_available():
-            device = torch.device('cuda')
-        elif check_xpu_available():
-            device = torch.device('xpu')
-        else:
-            device = torch.device('cpu')
-    elif args.device == 'cuda':
-        if torch.cuda.is_available():
-            device = torch.device('cuda')
-        else:
-            logging.warning("CUDA not available, falling back to CPU")
-            device = torch.device('cpu')
-    elif args.device == 'xpu':
-        if check_xpu_available():
-            device = torch.device('xpu')
-        else:
-            logging.warning("XPU not available, falling back to CPU")
-            device = torch.device('cpu')
-    else:
-        device = torch.device('cpu')
+    logging.info(f"Decoder Comparison (L={args.L}, p_meas={args.p_meas})")
+    device = torch.device(args.device if args.device != 'auto' else ('cuda' if torch.cuda.is_available() else 'cpu'))
     logging.info(f"Device: {device}")
 
-    # Load code
     Hx, Hz, Lx, Lz = Get_surface_Code(args.L)
-    logging.info(f"Code loaded: n_qubits={Hx.shape[1]}")
-
-    # Results storage
     all_results = {}
 
-    # Evaluate MWPM
     if not args.skip_mwpm:
-        mwpm_results = evaluate_mwpm(Hx, Hz, Lx, Lz, args.p_errors,
-                                     n_shots=args.n_shots, y_ratio=args.y_ratio)
+        # MWPM typically ignores p_meas in this simple implementation unless updated
+        mwpm_results = evaluate_mwpm(Hx, Hz, Lx, Lz, args.p_errors, args.n_shots, args.y_ratio)
         all_results['MWPM'] = mwpm_results
 
-    # Evaluate Transformer
-    if args.transformer_model:
-        transformer_results = evaluate_nn_model(
-            args.transformer_model, 'Transformer',
-            Hx, Hz, Lx, Lz, args.p_errors,
-            n_shots=args.n_shots, y_ratio=args.y_ratio, device=device,
-            batch_size=args.batch_size
-        )
-        if transformer_results:
-            all_results['Transformer'] = transformer_results
+    # Helper to run evaluation
+    def run_eval(path, name):
+        if path:
+            res = evaluate_nn_model(path, name, Hx, Hz, Lx, Lz, args.p_errors, 
+                                  args.n_shots, args.y_ratio, args.p_meas, device, args.batch_size)
+            if res: all_results[name] = res
 
-    # Evaluate FFNN
-    if args.ffnn_model:
-        ffnn_results = evaluate_nn_model(
-            args.ffnn_model, 'FFNN',
-            Hx, Hz, Lx, Lz, args.p_errors,
-            n_shots=args.n_shots, y_ratio=args.y_ratio, device=device,
-            batch_size=args.batch_size
-        )
-        if ffnn_results:
-            all_results['FFNN'] = ffnn_results
+    run_eval(args.ffnn_model, 'FFNN')
+    run_eval(args.cnn_model, 'CNN')
+    run_eval(args.vit_model, 'ViT')
+    
+    # New Models
+    run_eval(args.jung_model, 'Jung_CNN')
+    run_eval(args.hqmt_model, 'HQMT')
 
-    # Evaluate CNN
-    if args.cnn_model:
-        cnn_results = evaluate_nn_model(
-            args.cnn_model, 'CNN',
-            Hx, Hz, Lx, Lz, args.p_errors,
-            n_shots=args.n_shots, y_ratio=args.y_ratio, device=device,
-            batch_size=args.batch_size
-        )
-        if cnn_results:
-            all_results['CNN'] = cnn_results
-
-    # Evaluate CNN_Large
-    if args.cnn_large_model:
-        cnn_large_results = evaluate_nn_model(
-            args.cnn_large_model, 'CNN_Large',
-            Hx, Hz, Lx, Lz, args.p_errors,
-            n_shots=args.n_shots, y_ratio=args.y_ratio, device=device,
-            batch_size=args.batch_size
-        )
-        if cnn_large_results:
-            all_results['CNN_Large'] = cnn_large_results
-
-    # Evaluate ViT
-    if args.vit_model:
-        vit_results = evaluate_nn_model(
-            args.vit_model, 'ViT',
-            Hx, Hz, Lx, Lz, args.p_errors,
-            n_shots=args.n_shots, y_ratio=args.y_ratio, device=device,
-            batch_size=args.batch_size
-        )
-        if vit_results:
-            all_results['ViT'] = vit_results
-
-    # Evaluate ViT_Large
-    if args.vit_large_model:
-        vit_large_results = evaluate_nn_model(
-            args.vit_large_model, 'ViT_Large',
-            Hx, Hz, Lx, Lz, args.p_errors,
-            n_shots=args.n_shots, y_ratio=args.y_ratio, device=device,
-            batch_size=args.batch_size
-        )
-        if vit_large_results:
-            all_results['ViT_Large'] = vit_large_results
-
-    # Evaluate QubitCentric
-    if args.qubit_centric_model:
-        qc_results = evaluate_nn_model(
-            args.qubit_centric_model, 'QUBIT_CENTRIC',
-            Hx, Hz, Lx, Lz, args.p_errors,
-            n_shots=args.n_shots, y_ratio=args.y_ratio, device=device,
-            batch_size=args.batch_size
-        )
-        if qc_results:
-            all_results['QubitCentric'] = qc_results
-
-    # Evaluate LUT_Residual
-    if args.lut_residual_model:
-        lut_res_results = evaluate_nn_model(
-            args.lut_residual_model, 'LUT_RESIDUAL',
-            Hx, Hz, Lx, Lz, args.p_errors,
-            n_shots=args.n_shots, y_ratio=args.y_ratio, device=device,
-            batch_size=args.batch_size
-        )
-        if lut_res_results:
-            all_results['LUT_Residual'] = lut_res_results
-
-    # Evaluate LUT_Concat
-    if args.lut_concat_model:
-        lut_concat_results = evaluate_nn_model(
-            args.lut_concat_model, 'LUT_CONCAT',
-            Hx, Hz, Lx, Lz, args.p_errors,
-            n_shots=args.n_shots, y_ratio=args.y_ratio, device=device,
-            batch_size=args.batch_size
-        )
-        if lut_concat_results:
-            all_results['LUT_Concat'] = lut_concat_results
-
-    # Evaluate Diamond CNN
-    if args.diamond_model:
-        diamond_results = evaluate_nn_model(
-            args.diamond_model, 'DIAMOND',
-            Hx, Hz, Lx, Lz, args.p_errors,
-            n_shots=args.n_shots, y_ratio=args.y_ratio, device=device,
-            batch_size=args.batch_size
-        )
-        if diamond_results:
-            all_results['Diamond'] = diamond_results
-
-    # Evaluate Diamond Deep CNN
-    if args.diamond_deep_model:
-        diamond_deep_results = evaluate_nn_model(
-            args.diamond_deep_model, 'DIAMOND_DEEP',
-            Hx, Hz, Lx, Lz, args.p_errors,
-            n_shots=args.n_shots, y_ratio=args.y_ratio, device=device,
-            batch_size=args.batch_size
-        )
-        if diamond_deep_results:
-            all_results['Diamond_Deep'] = diamond_deep_results
-
-    # Evaluate ViT_QubitCentric
-    if args.vit_qubit_centric_model:
-        vit_qc_results = evaluate_nn_model(
-            args.vit_qubit_centric_model, 'VIT_QUBIT_CENTRIC',
-            Hx, Hz, Lx, Lz, args.p_errors,
-            n_shots=args.n_shots, y_ratio=args.y_ratio, device=device,
-            batch_size=args.batch_size
-        )
-        if vit_qc_results:
-            all_results['ViT_QubitCentric'] = vit_qc_results
-
-    # Evaluate ViT_LUT_Concat
-    if args.vit_lut_concat_model:
-        vit_lut_results = evaluate_nn_model(
-            args.vit_lut_concat_model, 'VIT_LUT_CONCAT',
-            Hx, Hz, Lx, Lz, args.p_errors,
-            n_shots=args.n_shots, y_ratio=args.y_ratio, device=device,
-            batch_size=args.batch_size
-        )
-        if vit_lut_results:
-            all_results['ViT_LUT_Concat'] = vit_lut_results
-
-    # Print comparison
     if all_results:
         print_comparison_table(all_results)
-
-        # Plot comparison graphs
         plot_comparison_graphs(all_results, exp_dir, args.L, args.y_ratio)
-    else:
-        logging.error("No results to compare!")
-
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='Compare QEC Decoders')
-    parser.add_argument('-L', type=int, default=3, help='Code distance')
-    parser.add_argument('-p', '--p_errors', type=float, nargs='+',
-                        default=[0.07, 0.08, 0.09, 0.1, 0.11, 0.12, 0.13],
-                        help='Error rates to test')
-    parser.add_argument('-n', '--n_shots', type=int, default=10000,
-                        help='Number of test shots per error rate')
-    parser.add_argument('-y', '--y_ratio', type=float, default=0.0,
-                        help='Y-error ratio for correlated noise')
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-L', type=int, default=3)
+    parser.add_argument('-p', '--p_errors', type=float, nargs='+', default=[0.01, 0.03, 0.05])
+    parser.add_argument('--p_meas', type=float, default=0.0, help='Measurement error probability')
+    parser.add_argument('-n', '--n_shots', type=int, default=10000)
+    parser.add_argument('-y', '--y_ratio', type=float, default=0.0)
+    parser.add_argument('--batch_size', type=int, default=1024)
+    parser.add_argument('--device', type=str, default='auto')
+    parser.add_argument('--skip_mwpm', action='store_true')
 
-    parser.add_argument('--skip_mwpm', action='store_true',
-                        help='Skip MWPM evaluation')
-    parser.add_argument('--transformer_model', type=str, default=None,
-                        help='Path to trained Transformer model')
-    parser.add_argument('--ffnn_model', type=str, default=None,
-                        help='Path to trained FFNN model')
-    parser.add_argument('--cnn_model', type=str, default=None,
-                        help='Path to trained CNN model')
-    parser.add_argument('--cnn_large_model', type=str, default=None,
-                        help='Path to trained CNN_Large model')
-    parser.add_argument('--vit_model', type=str, default=None,
-                        help='Path to trained ViT model')
-    parser.add_argument('--vit_large_model', type=str, default=None,
-                        help='Path to trained ViT_Large model')
-    parser.add_argument('--qubit_centric_model', type=str, default=None,
-                        help='Path to trained QubitCentric model')
-    parser.add_argument('--lut_residual_model', type=str, default=None,
-                        help='Path to trained LUT_Residual model')
-    parser.add_argument('--lut_concat_model', type=str, default=None,
-                        help='Path to trained LUT_Concat model')
-    parser.add_argument('--diamond_model', type=str, default=None,
-                        help='Path to trained Diamond CNN model')
-    parser.add_argument('--diamond_deep_model', type=str, default=None,
-                        help='Path to trained Diamond Deep CNN model')
-    parser.add_argument('--vit_qubit_centric_model', type=str, default=None,
-                        help='Path to trained ViT_QubitCentric model')
-    parser.add_argument('--vit_lut_concat_model', type=str, default=None,
-                        help='Path to trained ViT_LUT_Concat model')
-    parser.add_argument('--device', type=str, default='auto',
-                        choices=['cpu', 'cuda', 'xpu', 'auto'],
-                        help='Device to use (cpu, cuda, xpu, or auto for auto-detection)')
-    parser.add_argument('--batch_size', type=int, default=1024,
-                        help='Batch size for GPU/XPU inference (default: 1024)')
+    # Models
+    parser.add_argument('--ffnn_model', type=str)
+    parser.add_argument('--cnn_model', type=str)
+    parser.add_argument('--vit_model', type=str)
+    parser.add_argument('--jung_model', type=str, help='Jung CNN Model Path')
+    parser.add_argument('--hqmt_model', type=str, help='HQMT Model Path')
 
     args = parser.parse_args()
     main(args)
