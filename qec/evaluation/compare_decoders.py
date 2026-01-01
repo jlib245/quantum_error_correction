@@ -1,6 +1,6 @@
 """
 Compare different decoders: MWPM vs Neural Network models
-(Updated to support HQMT & Jung CNN with Measurement Error)
+(Updated to support HQMT & Jung CNN with Measurement Error & Legacy Model Patch)
 """
 import argparse
 import os
@@ -57,7 +57,6 @@ def get_experiment_dir(L, y_ratio, p_meas=0.0):
     else:
         noise_type = f"L{L}_independent"
     
-    # [추가] 측정 오류 여부 폴더명에 반영
     if p_meas > 0:
         noise_type += f"_pmeas{p_meas}"
 
@@ -119,7 +118,7 @@ def evaluate_mwpm(Hx, Hz, Lx, Lz, p_errors, n_shots=10000, y_ratio=0.0):
 
 def evaluate_nn_model(model_path, model_type, Hx, Hz, Lx, Lz, p_errors,
                       n_shots=10000, y_ratio=0.0, p_meas=0.0, device='cuda', batch_size=1024):
-    """Evaluate neural network decoder (Updated for p_meas)."""
+    """Evaluate neural network decoder (Patched for Legacy Models)."""
     logging.info("\n" + "="*60)
     logging.info(f"{model_type.upper()} Model Evaluation")
     logging.info("="*60)
@@ -160,7 +159,7 @@ def evaluate_nn_model(model_path, model_type, Hx, Hz, Lx, Lz, p_errors,
     args.y_ratio = y_ratio
     args.code = code
     args.no_g = 1
-    args.p_meas = p_meas # [추가]
+    args.p_meas = p_meas 
     args.code_L = int(np.sqrt(Hx.shape[1]))
 
     # HQMT/Jung defaults
@@ -183,15 +182,32 @@ def evaluate_nn_model(model_path, model_type, Hx, Hz, Lx, Lz, p_errors,
         model.eval()
         logging.info("Model loaded successfully (full model)")
         
-        # Ensure p_meas is set correctly in loaded model args if needed
+        # ------------------------------------------------------------------
+        # [긴급 수정] Legacy Jung/HQMT model 호환성 패치
+        # ------------------------------------------------------------------
+        if model_type.upper() == 'JUNG_CNN':
+            if not hasattr(model, 'input_depth'):
+                logging.warning("Legacy Jung model detected. Patching missing 'input_depth'...")
+                # conv1.in_channels = 2 * input_depth 이므로 역계산
+                if hasattr(model, 'conv1'):
+                    model.input_depth = model.conv1.in_channels // 2
+                else:
+                    model.input_depth = 1 # 기본값
+            
+            # grid_size도 없을 수 있으므로 패치
+            if not hasattr(model, 'grid_size_h'):
+                model.grid_size_h = args.code_L + 1
+                model.grid_size_w = args.code_L + 1
+                
+        # args 업데이트 (추론 시 p_meas 설정 등)
         if hasattr(model, 'args'):
             model.args.p_meas = p_meas
+        # ------------------------------------------------------------------
 
     except Exception as e:
         logging.info(f"Failed to load as full model: {e}")
         logging.info("Trying to load as state_dict...")
 
-        # Try loading as state_dict
         try:
             # Import model architecture
             if model_type.upper() == 'FFNN':
@@ -249,7 +265,6 @@ def evaluate_nn_model(model_path, model_type, Hx, Hz, Lx, Lz, p_errors,
 
             state_dict = torch.load(model_path, map_location=device, weights_only=True)
 
-            # Handle DataParallel wrapper
             from collections import OrderedDict
             new_state_dict = OrderedDict()
             for k, v in state_dict.items():
@@ -339,7 +354,6 @@ def evaluate_nn_model(model_path, model_type, Hx, Hz, Lx, Lz, p_errors,
                 total_inference_time += (end_time - start_time)
 
                 # Compute ground truth (Using Perfect Syndrome)
-                # (주의: 디코딩 성공 여부는 '이상적 신드롬' 기준으로 판단)
                 for i in range(current_batch_size):
                     syndrome_i = syndrome_perfect[i].type(torch.uint8)
                     pure_error_C = simple_decoder_C_torch(
@@ -424,7 +438,7 @@ def plot_comparison_graphs(results_dict, save_dir, L, y_ratio):
         'ViT': {'color': '#9467bd', 'marker': 'p', 'linestyle': '-'},
         'ViT_QubitCentric': {'color': '#ffbb78', 'marker': '>', 'linestyle': '--'},
         
-        # [추가] New Models Style
+        # New Models Style
         'Jung_CNN': {'color': '#000080', 'marker': 'X', 'linestyle': '--', 'linewidth': 2}, # Navy
         'HQMT': {'color': '#FF1493', 'marker': '*', 'linestyle': '-.', 'linewidth': 2},    # DeepPink
     }
@@ -518,7 +532,7 @@ def main(args):
     run_eval(args.vit_model, 'ViT')
     run_eval(args.qubit_centric_model, 'QubitCentric')
     
-    # [추가] New Models
+    # New Models
     run_eval(args.jung_model, 'Jung_CNN')
     run_eval(args.hqmt_model, 'HQMT')
 
@@ -534,11 +548,11 @@ if __name__ == '__main__':
     parser.add_argument('-L', type=int, default=3)
     parser.add_argument('-p', '--p_errors', type=float, nargs='+',
                         default=[0.07, 0.08, 0.09, 0.1, 0.11, 0.12, 0.13])
-    # [추가] Measurement Error
+    # Measurement Error
     parser.add_argument('--p_meas', type=float, default=0.0, help='Measurement Error Probability')
     
     parser.add_argument('-n', '--n_shots', type=int, default=10000)
-    parser.add_argument('-y', '--y_ratio', type=float, default=0.0)
+    parser.add_argument('-y', '--y_ratio', type=float, default=0.3333)
     parser.add_argument('--batch_size', type=int, default=1024)
     parser.add_argument('--device', type=str, default='auto')
     parser.add_argument('--skip_mwpm', action='store_true')
@@ -558,7 +572,7 @@ if __name__ == '__main__':
     parser.add_argument('--vit_qubit_centric_model', type=str)
     parser.add_argument('--vit_lut_concat_model', type=str)
     
-    # [추가] HQMT & Jung
+    # HQMT & Jung
     parser.add_argument('--jung_model', type=str, help='Jung CNN Model Path')
     parser.add_argument('--hqmt_model', type=str, help='HQMT Model Path')
 
