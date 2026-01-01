@@ -53,7 +53,6 @@ def main(args):
         mode='min', 
         factor=0.1, 
         patience=args.scheduler_patience, 
-        verbose=True,
         min_lr=args.min_lr  # <--- 추가됨
     )
 
