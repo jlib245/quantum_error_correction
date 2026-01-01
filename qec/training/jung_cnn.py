@@ -10,7 +10,6 @@ from datetime import datetime
 import logging
 import torch
 import numpy as np
-# [수정 3] 논문에 명시된 스케줄러와 옵티마이저로 변경
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torch.optim import SGD
 
@@ -44,10 +43,19 @@ def main(args):
         logging.info(f"Using {torch.cuda.device_count()} GPUs")
         model = torch.nn.DataParallel(model)
 
-    # [수정 2] Optimizer: Adam -> SGD (논문 명시)
+    # [수정] Optimizer: SGD (논문 명시)
     optimizer = SGD(model.parameters(), lr=args.lr, momentum=0.9)
-    # [수정 3] Scheduler: CosineAnnealingLR -> ReduceLROnPlateau (논문 명시)
-    scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=args.scheduler_patience, verbose=True)
+    
+    # [수정] Scheduler: ReduceLROnPlateau (논문 명시: adaptive to 10^-5)
+    # min_lr 인자를 여기서 연결합니다.
+    scheduler = ReduceLROnPlateau(
+        optimizer, 
+        mode='min', 
+        factor=0.1, 
+        patience=args.scheduler_patience, 
+        verbose=True,
+        min_lr=args.min_lr  # <--- 추가됨
+    )
 
     logging.info(f'Code L={args.code_L}')
     logging.info(model)
@@ -79,12 +87,11 @@ def main(args):
         ) for p in ps_test
     ]
 
-    # [수정] custom training loop for ReduceLROnPlateau
+    # Custom training loop
     start_epoch = 1
     best_val_ler = float('inf')
+    
     if hasattr(args, 'resume') and args.resume and os.path.exists(args.resume):
-        # Note: loading checkpoint might have issues if optimizer/scheduler differs.
-        # For this specific case, we assume we start fresh or resume a compatible session.
         loaded_epoch, loaded_best = load_checkpoint(args.resume, model, optimizer, scheduler, device)
         if loaded_epoch:
             start_epoch = loaded_epoch
@@ -117,12 +124,12 @@ def main(args):
             logging.info(f'Early stopping at epoch {epoch}')
             break
             
-    # Final test with best model
+    # Final test
     logging.info("--- Final Test with Best Model ---")
     model_path = os.path.join(args.path, 'best_model')
     if os.path.exists(model_path):
         best_model = torch.load(model_path, weights_only=False).to(device)
-        test_model(best_model, device, val_loaders, ps_test, args.test_samples * 5) # Larger test
+        test_model(best_model, device, val_loaders, ps_test, args.test_samples * 5)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Jung CNN Decoder Training (Paper-compliant)')
@@ -130,15 +137,19 @@ if __name__ == '__main__':
     # Training
     parser.add_argument('--epochs', type=int, default=100)
     parser.add_argument('--workers', type=int, default=8)
-    parser.add_argument('--lr', type=float, default=0.01) # Starting LR for SGD
+    parser.add_argument('--lr', type=float, default=0.01)
+    
+    # [수정] 누락되었던 min_lr 인자 추가
+    parser.add_argument('--min_lr', type=float, default=1e-5, help='Minimum learning rate for scheduler')
+    
     parser.add_argument('--batch_size', type=int, default=2048)
     parser.add_argument('--test_batch_size', type=int, default=4096)
     parser.add_argument('--test_samples', type=int, default=20000)
     parser.add_argument('--samples_per_epoch', type=int, default=1000000)
     parser.add_argument('--seed', type=int, default=42)
     parser.add_argument('--device', type=str, default='auto')
-    parser.add_argument('--patience', type=int, default=10) # Early stopping patience
-    parser.add_argument('--scheduler_patience', type=int, default=5) # Scheduler patience
+    parser.add_argument('--patience', type=int, default=10)
+    parser.add_argument('--scheduler_patience', type=int, default=5)
     parser.add_argument('--min_delta', type=float, default=1e-5)
     parser.add_argument('--resume', type=str, default=None)
 
@@ -149,8 +160,8 @@ if __name__ == '__main__':
     parser.add_argument('-y', '--y_ratio', type=float, default=0.0)
 
     # Model
-    parser.add_argument('--dropout', type=float, default=0.0) # Paper does not specify dropout
-    parser.add_argument('--label_smoothing', type=float, default=0.0) # Paper does not specify label smoothing
+    parser.add_argument('--dropout', type=float, default=0.0)
+    parser.add_argument('--label_smoothing', type=float, default=0.0)
 
     args = parser.parse_args()
 
