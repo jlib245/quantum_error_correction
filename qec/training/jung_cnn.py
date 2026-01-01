@@ -130,7 +130,7 @@ if __name__ == '__main__':
     # Training
     parser.add_argument('--epochs', type=int, default=100)
     parser.add_argument('--workers', type=int, default=8)
-    parser.add_argument('--lr', type=float, default=0.1) # Starting LR for SGD
+    parser.add_argument('--lr', type=float, default=0.01) # Starting LR for SGD
     parser.add_argument('--batch_size', type=int, default=2048)
     parser.add_argument('--test_batch_size', type=int, default=4096)
     parser.add_argument('--test_samples', type=int, default=20000)
