@@ -1,6 +1,6 @@
 """
-Compare different decoders: MWPM vs Neural Network models (Including HQMT & Jung CNN)
-Supports Measurement Error simulation for 3D/Stacked models.
+Compare different decoders: MWPM vs Neural Network models
+(Updated to support HQMT & Jung CNN with Measurement Error)
 """
 import argparse
 import os
@@ -49,7 +49,7 @@ class Code:
     pass
 
 
-def get_experiment_dir(L, y_ratio, p_meas):
+def get_experiment_dir(L, y_ratio, p_meas=0.0):
     """Get experiment directory based on configuration."""
     base_dir = "experiments"
     if y_ratio > 0:
@@ -57,6 +57,7 @@ def get_experiment_dir(L, y_ratio, p_meas):
     else:
         noise_type = f"L{L}_independent"
     
+    # [추가] 측정 오류 여부 폴더명에 반영
     if p_meas > 0:
         noise_type += f"_pmeas{p_meas}"
 
@@ -89,7 +90,7 @@ def _reset_seed_for_idx(idx, base_seed=20_000_000):
 
 
 def evaluate_mwpm(Hx, Hz, Lx, Lz, p_errors, n_shots=10000, y_ratio=0.0):
-    """Evaluate MWPM decoder (2D only)."""
+    """Evaluate MWPM decoder."""
     logging.info("\n" + "="*60)
     logging.info("MWPM Decoder Evaluation")
     logging.info("="*60)
@@ -118,11 +119,13 @@ def evaluate_mwpm(Hx, Hz, Lx, Lz, p_errors, n_shots=10000, y_ratio=0.0):
 
 def evaluate_nn_model(model_path, model_type, Hx, Hz, Lx, Lz, p_errors,
                       n_shots=10000, y_ratio=0.0, p_meas=0.0, device='cuda', batch_size=1024):
-    """Evaluate neural network decoder."""
+    """Evaluate neural network decoder (Updated for p_meas)."""
     logging.info("\n" + "="*60)
     logging.info(f"{model_type.upper()} Model Evaluation")
     logging.info("="*60)
     logging.info(f"Model path: {model_path}")
+    if p_meas > 0:
+        logging.info(f"Simulating Measurement Error: p_meas={p_meas} (Stacking)")
 
     # Import dataset and evaluation functions
     from qec.training.common import (
@@ -150,17 +153,17 @@ def evaluate_nn_model(model_path, model_type, Hx, Hz, Lx, Lz, p_errors,
     code.k = code.n - code.pc_matrix.shape[0]
     code.code_type = 'surface'
 
-    # Create args object with necessary defaults
+    # Create args object
     class Args:
         pass
     args = Args()
     args.y_ratio = y_ratio
     args.code = code
     args.no_g = 1
-    args.p_meas = p_meas # Add p_meas to args
+    args.p_meas = p_meas # [추가]
     args.code_L = int(np.sqrt(Hx.shape[1]))
-    
-    # HQMT specific defaults
+
+    # HQMT/Jung defaults
     args.d_model = 128
     args.n_heads = 4
     args.dim_feedforward = 512
@@ -180,10 +183,10 @@ def evaluate_nn_model(model_path, model_type, Hx, Hz, Lx, Lz, p_errors,
         model.eval()
         logging.info("Model loaded successfully (full model)")
         
-        # Ensure model has correct attributes for inference
+        # Ensure p_meas is set correctly in loaded model args if needed
         if hasattr(model, 'args'):
-            model.args.p_meas = p_meas # Update inference p_meas
-            
+            model.args.p_meas = p_meas
+
     except Exception as e:
         logging.info(f"Failed to load as full model: {e}")
         logging.info("Trying to load as state_dict...")
@@ -194,30 +197,58 @@ def evaluate_nn_model(model_path, model_type, Hx, Hz, Lx, Lz, p_errors,
             if model_type.upper() == 'FFNN':
                 from qec.models.ffnn import ECC_FFNN
                 model = ECC_FFNN(args, dropout=0)
+            elif model_type.upper() == 'TRANSFORMER':
+                from qec.models.transformer import ECC_Transformer
+                model = ECC_Transformer(args, dropout=0)
             elif model_type.upper() == 'CNN':
                 from qec.models.cnn import ECC_CNN
                 model = ECC_CNN(args, dropout=0)
+            elif model_type.upper() == 'CNN_LARGE':
+                from qec.models.cnn import ECC_CNN_Large
+                model = ECC_CNN_Large(args, dropout=0)
             elif model_type.upper() == 'VIT':
                 from qec.models.vit import ECC_ViT
                 model = ECC_ViT(args, dropout=0)
+            elif model_type.upper() == 'VIT_LARGE':
+                from qec.models.vit import ECC_ViT_Large
+                model = ECC_ViT_Large(args, dropout=0)
+            elif model_type.upper() == 'QUBIT_CENTRIC':
+                from qec.models.qubit_centric import ECC_QubitCentric
+                model = ECC_QubitCentric(args, dropout=0)
+            elif model_type.upper() == 'LUT_RESIDUAL':
+                from qec.models.qubit_centric import ECC_LUT_Residual
+                model = ECC_LUT_Residual(args, x_error_basis, z_error_basis, dropout=0)
+            elif model_type.upper() == 'LUT_CONCAT':
+                from qec.models.qubit_centric import ECC_LUT_Concat
+                model = ECC_LUT_Concat(args, x_error_basis, z_error_basis, dropout=0)
+            elif model_type.upper() == 'DIAMOND':
+                from qec.models.diamond_cnn import ECC_DiamondCNN
+                model = ECC_DiamondCNN(args, x_error_lut=x_error_basis, z_error_lut=z_error_basis, dropout=0)
+            elif model_type.upper() == 'DIAMOND_DEEP':
+                from qec.models.diamond_cnn import ECC_DiamondCNN_Deep
+                model = ECC_DiamondCNN_Deep(args, x_error_lut=x_error_basis, z_error_lut=z_error_basis, dropout=0)
+            elif model_type.upper() == 'VIT_QUBIT_CENTRIC':
+                from qec.models.vit import ECC_ViT_QubitCentric
+                model = ECC_ViT_QubitCentric(args, dropout=0)
+            elif model_type.upper() == 'VIT_LUT_CONCAT':
+                from qec.models.vit import ECC_ViT_LUT_Concat
+                model = ECC_ViT_LUT_Concat(args, x_error_basis, z_error_basis, dropout=0)
+            
+            # --- [추가된 모델] ---
             elif model_type.upper() == 'JUNG_CNN':
                 from qec.models.jung_cnn import JungCNNDecoder
                 model = JungCNNDecoder(args, dropout=0, label_smoothing=0)
             elif model_type.upper() == 'HQMT':
                 from qec.models.hqmt import HQMT
-                model = HQMT(
-                    args,
-                    x_error_lut=x_error_basis,
-                    z_error_lut=z_error_basis,
-                    dropout=0
-                )
-            # ... (Add other models as needed) ...
+                model = HQMT(args, x_error_lut=x_error_basis, z_error_lut=z_error_basis, dropout=0)
+            # --------------------
+
             else:
-                logging.error(f"Unknown model type for state_dict loading: {model_type}")
+                logging.error(f"Unknown model type: {model_type}")
                 return None
 
             state_dict = torch.load(model_path, map_location=device, weights_only=True)
-            
+
             # Handle DataParallel wrapper
             from collections import OrderedDict
             new_state_dict = OrderedDict()
@@ -232,18 +263,22 @@ def evaluate_nn_model(model_path, model_type, Hx, Hz, Lx, Lz, p_errors,
             logging.error(f"Failed to load model as state_dict: {e2}")
             return None
 
+    if model is None:
+        logging.error("Failed to load model")
+        return None
+
     model.to(device)
     results = {}
     n_phys = Hx.shape[1]
 
-    # Determine inference mode
     use_batch = device.type in ['cuda', 'xpu']
     if not use_batch:
         batch_size = 1
 
-    logging.info(f"Inference Mode: {'Batch' if use_batch else 'Single'}")
-    if p_meas > 0:
-        logging.info(f"Simulating Measurement Error (p_meas={p_meas}) with {args.code_L + 1} rounds")
+    if use_batch:
+        logging.info(f"Using batch inference (batch_size={batch_size})")
+    else:
+        logging.info("Using single-sample inference (CPU mode)")
 
     with torch.no_grad():
         for idx, p in enumerate(p_errors):
@@ -258,7 +293,7 @@ def evaluate_nn_model(model_path, model_type, Hx, Hz, Lx, Lz, p_errors,
             for batch_idx in tqdm(range(n_batches)):
                 current_batch_size = min(batch_size, n_shots - batch_idx * batch_size)
 
-                # 1. Generate Physical Errors (Data Qubits)
+                # 1. Generate Physical Noise
                 e_x, e_z = generate_noise_batch(n_phys, p, y_ratio, current_batch_size, device)
                 e_full = torch.cat([e_z, e_x], dim=1)
 
@@ -267,53 +302,46 @@ def evaluate_nn_model(model_path, model_type, Hx, Hz, Lx, Lz, p_errors,
                 s_x_perfect = (code.H_x.float() @ e_z.float().T).T % 2
                 syndrome_perfect = torch.cat([s_z_perfect, s_x_perfect], dim=1)
 
-                # 3. Simulate Measurement Errors if p_meas > 0
+                # --- [수정] 측정 오류 시뮬레이션 (3D/Stacking) ---
                 if p_meas > 0:
-                    # Time steps: usually L or L+1 for fault tolerance
-                    time_steps = args.code_L + 1
-                    syndromes_list = []
-                    
-                    # Simply repeat perfect syndrome and add measurement noise
-                    # (Phenomenological noise model assumption for simple eval)
-                    for t in range(time_steps):
+                    # 논문 표준: L+1번 반복
+                    depth = args.code_L + 1
+                    stacked = []
+                    for _ in range(depth):
+                        # 측정 노이즈 주입
                         meas_noise = (torch.rand_like(syndrome_perfect) < p_meas).float()
                         s_noisy = (syndrome_perfect + meas_noise) % 2
-                        syndromes_list.append(s_noisy)
-                    
-                    # Stack: (Batch, Time, n_stab)
-                    syndromes_input = torch.stack(syndromes_list, dim=1)
+                        stacked.append(s_noisy)
+                    # (Batch, Time, n_stab) 형태로 쌓기
+                    syndromes = torch.stack(stacked, dim=1)
                 else:
-                    # Code Capacity: (Batch, n_stab)
-                    syndromes_input = syndrome_perfect
+                    # 측정 오류 없음 (Batch, n_stab)
+                    syndromes = syndrome_perfect
+                # -----------------------------------------------
 
-                # 4. Neural Network Inference
+                # NN prediction
                 if torch.cuda.is_available(): torch.cuda.synchronize()
-                
+                elif hasattr(torch, 'xpu') and torch.xpu.is_available(): torch.xpu.synchronize()
+
                 start_time = time.perf_counter()
-                outputs = model(syndromes_input.float())
                 
-                # Check output format (some models return tuple)
-                if isinstance(outputs, tuple):
+                # 모델 추론
+                outputs = model(syndromes.float())
+                if isinstance(outputs, tuple): # 일부 모델은 tuple 반환 가능성
                     outputs = outputs[0]
                     
                 _, predicted = torch.max(outputs.data, 1)
-                
+
                 if torch.cuda.is_available(): torch.cuda.synchronize()
+                elif hasattr(torch, 'xpu') and torch.xpu.is_available(): torch.xpu.synchronize()
+
                 end_time = time.perf_counter()
                 total_inference_time += (end_time - start_time)
 
-                # 5. Check Logical Errors (Ground Truth)
-                # For decoding, we use the final round or perfect syndrome to check correction
-                # In simple classification, we check if predicted class matches actual logical error class
-                
-                # Use the last noisy syndrome or perfect syndrome for standard decoder check?
-                # For "Classifiers" (High-level), we compare Predicted Logical Class vs Actual Logical Error
-                
-                # Use perfect syndrome for ground truth lookup (since we want to correct data errors)
+                # Compute ground truth (Using Perfect Syndrome)
+                # (주의: 디코딩 성공 여부는 '이상적 신드롬' 기준으로 판단)
                 for i in range(current_batch_size):
-                    # Use perfect syndrome to find matching pure error
                     syndrome_i = syndrome_perfect[i].type(torch.uint8)
-                    
                     pure_error_C = simple_decoder_C_torch(
                         syndrome_i,
                         x_error_basis,
@@ -321,14 +349,11 @@ def evaluate_nn_model(model_path, model_type, Hx, Hz, Lx, Lz, p_errors,
                         code.H_z,
                         code.H_x
                     )
-                    
-                    # Calculate residual error
                     l_physical = pure_error_C.long() ^ e_full[i].long()
 
                     l_z_physical = l_physical[:n_phys]
                     l_x_physical = l_physical[n_phys:]
 
-                    # Check logical operators
                     l_x_flip = (code.L_z.float() @ l_x_physical.float()) % 2
                     l_z_flip = (code.L_x.float() @ l_z_physical.float()) % 2
 
@@ -344,18 +369,22 @@ def evaluate_nn_model(model_path, model_type, Hx, Hz, Lx, Lz, p_errors,
 
             results[p] = {
                 'ler': ler,
-                'avg_latency': avg_latency
+                'batch_latency': batch_latency_ms,
+                'avg_latency': avg_latency,
+                'throughput': throughput,
+                'logical_errors': logical_error_count,
+                'total_shots': n_shots,
+                'batch_size': batch_size if use_batch else 1
             }
 
             logging.info(f"  LER: {ler:.6e}")
             logging.info(f"  Avg Latency: {avg_latency:.6f} ms")
-            logging.info(f"  Logical Errors: {logical_error_count}/{n_shots}")
 
     return results
 
 
 def print_comparison_table(results_dict):
-    """Print comparison table."""
+    """Print comparison table of all decoders."""
     logging.info("\n" + "="*80)
     logging.info("COMPARISON SUMMARY")
     logging.info("="*80)
@@ -377,89 +406,137 @@ def print_comparison_table(results_dict):
             else:
                 row += f"{'N/A':<20}"
         logging.info(row)
+
     logging.info("="*80)
 
 
 def plot_comparison_graphs(results_dict, save_dir, L, y_ratio):
-    """Plot graphs including HQMT and Jung CNN."""
+    """Plot and save LER comparison graphs (Updated styles)."""
     p_values = sorted(list(next(iter(results_dict.values())).keys()))
-    fig, ax1 = plt.subplots(1, 1, figsize=(8, 6))
+
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 5))
 
     styles = {
-        'MWPM': {'color': 'black', 'marker': 'o', 'linestyle': '-'},
-        'FFNN': {'color': 'red', 'marker': '^', 'linestyle': '-'},
-        'CNN': {'color': 'green', 'marker': 'd', 'linestyle': '-'},
-        'ViT': {'color': 'purple', 'marker': 'p', 'linestyle': '-'},
+        'MWPM': {'color': '#000000', 'marker': 'o', 'linestyle': '-'},
+        'Transformer': {'color': '#1f77b4', 'marker': 's', 'linestyle': '-'},
+        'FFNN': {'color': '#d62728', 'marker': '^', 'linestyle': '-'},
+        'CNN': {'color': '#2ca02c', 'marker': 'd', 'linestyle': '-'},
+        'ViT': {'color': '#9467bd', 'marker': 'p', 'linestyle': '-'},
+        'ViT_QubitCentric': {'color': '#ffbb78', 'marker': '>', 'linestyle': '--'},
         
-        # New Models
-        'Jung_CNN': {'color': 'blue', 'marker': 'X', 'linestyle': '--', 'linewidth': 2},
-        'HQMT': {'color': 'navy', 'marker': '*', 'linestyle': '-.', 'linewidth': 2},
+        # [추가] New Models Style
+        'Jung_CNN': {'color': '#000080', 'marker': 'X', 'linestyle': '--', 'linewidth': 2}, # Navy
+        'HQMT': {'color': '#FF1493', 'marker': '*', 'linestyle': '-.', 'linewidth': 2},    # DeepPink
     }
 
+    # Plot LER
     for decoder_name, results in results_dict.items():
         lers = [results[p]['ler'] for p in p_values]
-        style = styles.get(decoder_name, {'color': 'gray', 'marker': 's', 'linestyle': ':'})
+        style = styles.get(decoder_name, {'color': 'gray', 'marker': 'x', 'linestyle': ':'})
         ax1.plot(p_values, lers, label=decoder_name, **style)
 
     ax1.set_xlabel('Physical Error Rate (p)')
     ax1.set_ylabel('Logical Error Rate (LER)')
-    ax1.set_title(f'Decoder Comparison (L={L})')
+    ax1.set_title(f'LER Comparison (L={L})')
     ax1.grid(True, alpha=0.3)
     ax1.legend()
     ax1.set_yscale('log')
     ax1.set_xscale('log')
 
+    # Plot Latency (Optional visualization)
+    for decoder_name, results in results_dict.items():
+        latencies = [results[p]['avg_latency'] for p in p_values]
+        style = styles.get(decoder_name, {'color': 'gray', 'marker': 'x', 'linestyle': ':'})
+        ax2.plot(p_values, latencies, label=decoder_name, **style)
+    
+    ax2.set_xlabel('Physical Error Rate (p)')
+    ax2.set_ylabel('Avg Latency (ms)')
+    ax2.set_title('Inference Latency Comparison')
+    ax2.grid(True, alpha=0.3)
+    ax2.legend()
+    ax2.set_xscale('log')
+    ax2.set_yscale('log')
+
+    plt.tight_layout()
+
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     plot_file = os.path.join(save_dir, f'comparison_plot_{timestamp}.png')
-    plt.savefig(plot_file, dpi=300)
-    logging.info(f"Plot saved: {plot_file}")
+    plt.savefig(plot_file, dpi=300, bbox_inches='tight')
+    logging.info(f"\nPlot saved to: {plot_file}")
     plt.close(fig)
+
+    return plot_file
 
 
 def main(args):
+    # Fix random seeds
     EVAL_SEED = 20_000_000
     np.random.seed(EVAL_SEED)
     torch.manual_seed(EVAL_SEED)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(EVAL_SEED)
 
+    # Setup experiment directory
     exp_dir = get_experiment_dir(args.L, args.y_ratio, args.p_meas)
-    setup_logging(exp_dir)
+    log_file = setup_logging(exp_dir)
 
-    logging.info(f"Decoder Comparison (L={args.L}, p_meas={args.p_meas})")
-    device = torch.device(args.device if args.device != 'auto' else ('cuda' if torch.cuda.is_available() else 'cpu'))
+    logging.info("Decoder Comparison Script")
+    logging.info(f"Code L={args.L}, p_meas={args.p_meas}")
+
+    # Device setup
+    if args.device == 'auto':
+        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    else:
+        device = torch.device(args.device)
     logging.info(f"Device: {device}")
 
+    # Load code
     Hx, Hz, Lx, Lz = Get_surface_Code(args.L)
+
     all_results = {}
 
+    # 1. MWPM
     if not args.skip_mwpm:
-        # MWPM typically ignores p_meas in this simple implementation unless updated
-        mwpm_results = evaluate_mwpm(Hx, Hz, Lx, Lz, args.p_errors, args.n_shots, args.y_ratio)
+        mwpm_results = evaluate_mwpm(Hx, Hz, Lx, Lz, args.p_errors,
+                                     n_shots=args.n_shots, y_ratio=args.y_ratio)
         all_results['MWPM'] = mwpm_results
 
-    # Helper to run evaluation
+    # 2. Neural Networks
     def run_eval(path, name):
         if path:
-            res = evaluate_nn_model(path, name, Hx, Hz, Lx, Lz, args.p_errors, 
-                                  args.n_shots, args.y_ratio, args.p_meas, device, args.batch_size)
-            if res: all_results[name] = res
+            res = evaluate_nn_model(
+                path, name, Hx, Hz, Lx, Lz, args.p_errors,
+                n_shots=args.n_shots, y_ratio=args.y_ratio,
+                p_meas=args.p_meas, device=device, batch_size=args.batch_size
+            )
+            if res:
+                all_results[name] = res
 
+    # Existing models
     run_eval(args.ffnn_model, 'FFNN')
     run_eval(args.cnn_model, 'CNN')
     run_eval(args.vit_model, 'ViT')
+    run_eval(args.qubit_centric_model, 'QubitCentric')
     
-    # New Models
+    # [추가] New Models
     run_eval(args.jung_model, 'Jung_CNN')
     run_eval(args.hqmt_model, 'HQMT')
 
     if all_results:
         print_comparison_table(all_results)
         plot_comparison_graphs(all_results, exp_dir, args.L, args.y_ratio)
+    else:
+        logging.error("No results to compare!")
+
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(description='Compare QEC Decoders')
     parser.add_argument('-L', type=int, default=3)
-    parser.add_argument('-p', '--p_errors', type=float, nargs='+', default=[0.01, 0.03, 0.05])
-    parser.add_argument('--p_meas', type=float, default=0.0, help='Measurement error probability')
+    parser.add_argument('-p', '--p_errors', type=float, nargs='+',
+                        default=[0.07, 0.08, 0.09, 0.1, 0.11, 0.12, 0.13])
+    # [추가] Measurement Error
+    parser.add_argument('--p_meas', type=float, default=0.0, help='Measurement Error Probability')
+    
     parser.add_argument('-n', '--n_shots', type=int, default=10000)
     parser.add_argument('-y', '--y_ratio', type=float, default=0.0)
     parser.add_argument('--batch_size', type=int, default=1024)
@@ -467,9 +544,21 @@ if __name__ == '__main__':
     parser.add_argument('--skip_mwpm', action='store_true')
 
     # Models
+    parser.add_argument('--transformer_model', type=str)
     parser.add_argument('--ffnn_model', type=str)
     parser.add_argument('--cnn_model', type=str)
+    parser.add_argument('--cnn_large_model', type=str)
     parser.add_argument('--vit_model', type=str)
+    parser.add_argument('--vit_large_model', type=str)
+    parser.add_argument('--qubit_centric_model', type=str)
+    parser.add_argument('--lut_residual_model', type=str)
+    parser.add_argument('--lut_concat_model', type=str)
+    parser.add_argument('--diamond_model', type=str)
+    parser.add_argument('--diamond_deep_model', type=str)
+    parser.add_argument('--vit_qubit_centric_model', type=str)
+    parser.add_argument('--vit_lut_concat_model', type=str)
+    
+    # [추가] HQMT & Jung
     parser.add_argument('--jung_model', type=str, help='Jung CNN Model Path')
     parser.add_argument('--hqmt_model', type=str, help='HQMT Model Path')
 
