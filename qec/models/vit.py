@@ -580,7 +580,7 @@ class ECC_ViT_LUT_Concat(nn.Module):
         real_z_ternary = -2 * z_syndrome_on + 1  # ON: -2*1+1=-1, OFF: -2*0+1=+1
         real_x_ternary = -2 * x_syndrome_on + 1
 
-        # -----------------------------------------------------------
+        # ----------------------------------------------------------
         # Step 2: LUT lookup
         # -----------------------------------------------------------
         lut_e_z, lut_e_x = self._batch_lut_lookup(syndrome)  # (B, n_qubits), binary {0,1}
