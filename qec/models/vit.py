@@ -436,10 +436,12 @@ class ECC_ViT_QubitCentric(nn.Module):
 
 class ECC_ViT_LUT_Concat(nn.Module):
     """
-    ViT with LUT Concat input (4 channels).
+    ViT with LUT Concat input (4 channels) - ALL IN QUBIT SPACE.
 
-    Input: [real_z_count, real_x_count, lut_z_error, lut_x_error]
-    Combines qubit-centric representation with LUT predictions.
+    Channel 0: Z-syndrome involvement (ternary: 0=empty, -1=ON, +1=OFF)
+    Channel 1: X-syndrome involvement (ternary: 0=empty, -1=ON, +1=OFF)
+    Channel 2: LUT Z-error prediction (ternary: 0=empty, -1=no error, +1=error)
+    Channel 3: LUT X-error prediction (ternary: 0=empty, -1=no error, +1=error)
     """
 
     def __init__(self, args, x_error_lut, z_error_lut, dropout=0.1, label_smoothing=0.0):
@@ -451,6 +453,12 @@ class ECC_ViT_LUT_Concat(nn.Module):
         self.n_z = code.H_z.shape[0]
         self.n_x = code.H_x.shape[0]
         self.n_qubits = code.H_z.shape[1]
+
+        # Qubit 좌표 매핑
+        self.qubit_coord_map = {}
+        for q in range(self.n_qubits):
+            r, c = q // self.L, q % self.L
+            self.qubit_coord_map[q] = (r, c)
 
         # Convert LUT dict to tensor
         x_lut_tensor = torch.zeros(self.n_z, self.n_qubits)
@@ -466,7 +474,7 @@ class ECC_ViT_LUT_Concat(nn.Module):
         self.register_buffer('z_lut', z_lut_tensor)
 
         # Store H matrices
-        H_z_np = code.H_z.cpu().numpy() if torch.is_tensor(code.H_z) else code.H_x
+        H_z_np = code.H_z.cpu().numpy() if torch.is_tensor(code.H_z) else code.H_z
         H_x_np = code.H_x.cpu().numpy() if torch.is_tensor(code.H_x) else code.H_x
 
         self.register_buffer('H_z', torch.from_numpy(H_z_np).float())
@@ -537,26 +545,69 @@ class ECC_ViT_LUT_Concat(nn.Module):
         return c_z, c_x
 
     def _compute_concat_grid(self, syndrome):
-        """Compute 4-channel grid."""
+        """
+        Compute 4-channel grid in QUBIT SPACE with proper coordinate mapping.
+        
+        Returns: (B, 4, L, L)
+        - Channel 0: Z-syndrome involvement (ternary: 0=empty, -1=ON, +1=OFF)
+        - Channel 1: X-syndrome involvement (ternary: 0=empty, -1=ON, +1=OFF)
+        - Channel 2: LUT Z-error (ternary: 0=empty, -1=no error, +1=error)
+        - Channel 3: LUT X-error (ternary: 0=empty, -1=no error, +1=error)
+        """
         batch_size = syndrome.shape[0]
         L = self.L
+        device = syndrome.device
 
         s_z = syndrome[:, :self.n_z]
         s_x = syndrome[:, self.n_z:]
 
-        # Real qubit count (normalized)
-        real_z_count = torch.matmul(s_z, self.H_z) / 4.0
-        real_x_count = torch.matmul(s_x, self.H_x) / 4.0
+        # -----------------------------------------------------------
+        # Step 1: Project syndrome to qubit space via H^T
+        # -----------------------------------------------------------
+        # Result: count of syndromes involved (0~4 range)
+        real_z_count = torch.matmul(s_z, self.H_z)  # (B, n_qubits)
+        real_x_count = torch.matmul(s_x, self.H_x)
 
-        # LUT lookup
-        lut_e_z, lut_e_x = self._batch_lut_lookup(syndrome)
+        # -----------------------------------------------------------
+        # [NEW] Convert to ternary: 켜짐(count>0) → -1, 꺼짐(count=0) → +1
+        # -----------------------------------------------------------
+        # mask: True where syndrome is ON (count > 0)
+        z_syndrome_on = (real_z_count > 0).float()  # 1 if ON, 0 if OFF
+        x_syndrome_on = (real_x_count > 0).float()
+        
+        # Convert: ON(1) → -1, OFF(0) → +1
+        # Formula: -2 * mask + 1
+        real_z_ternary = -2 * z_syndrome_on + 1  # ON: -2*1+1=-1, OFF: -2*0+1=+1
+        real_x_ternary = -2 * x_syndrome_on + 1
 
-        # Reshape to grid
-        real_z_grid = real_z_count.view(batch_size, L, L)
-        real_x_grid = real_x_count.view(batch_size, L, L)
-        lut_z_grid = lut_e_z.view(batch_size, L, L)
-        lut_x_grid = lut_e_x.view(batch_size, L, L)
+        # -----------------------------------------------------------
+        # Step 2: LUT lookup
+        # -----------------------------------------------------------
+        lut_e_z, lut_e_x = self._batch_lut_lookup(syndrome)  # (B, n_qubits), binary {0,1}
 
+        # Convert to ternary: 0 → -1, 1 → +1
+        lut_e_z_ternary = lut_e_z * 2 - 1  # {-1, +1}
+        lut_e_x_ternary = lut_e_x * 2 - 1
+
+        # -----------------------------------------------------------
+        # Step 3: Initialize grids with 0 (empty positions)
+        # -----------------------------------------------------------
+        real_z_grid = torch.zeros(batch_size, L, L, device=device)
+        real_x_grid = torch.zeros(batch_size, L, L, device=device)
+        lut_z_grid = torch.zeros(batch_size, L, L, device=device)
+        lut_x_grid = torch.zeros(batch_size, L, L, device=device)
+
+        # -----------------------------------------------------------
+        # Step 4: Scatter to actual qubit positions
+        # -----------------------------------------------------------
+        for q_idx, (r, c) in self.qubit_coord_map.items():
+            if q_idx < self.n_qubits and r < L and c < L:
+                real_z_grid[:, r, c] = real_z_ternary[:, q_idx]
+                real_x_grid[:, r, c] = real_x_ternary[:, q_idx]
+                lut_z_grid[:, r, c] = lut_e_z_ternary[:, q_idx]
+                lut_x_grid[:, r, c] = lut_e_x_ternary[:, q_idx]
+
+        # Stack into 4-channel tensor
         return torch.stack([real_z_grid, real_x_grid, lut_z_grid, lut_x_grid], dim=1)
 
     def forward(self, x):
