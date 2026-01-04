@@ -433,39 +433,61 @@ class ECC_ViT_QubitCentric(nn.Module):
     def loss(self, pred, true_label):
         return self.criterion(pred, true_label)
 
-
 class ECC_ViT_LUT_Concat(nn.Module):
     """
     ViT with LUT Concat input (4 channels) - ALL IN QUBIT SPACE.
-    VECTORIZED VERSION - No loops!
-
-    Channel 0: Z-syndrome involvement (ternary: 0=empty, -1=ON, +1=OFF)
-    Channel 1: X-syndrome involvement (ternary: 0=empty, -1=ON, +1=OFF)
-    Channel 2: LUT Z-error prediction (ternary: 0=empty, -1=no error, +1=error)
-    Channel 3: LUT X-error prediction (ternary: 0=empty, -1=no error, +1=error)
+    
+    [LOGIC UPDATE]
+    - Base Value: 0.0 (Clean / Empty)
+    - Signal Value: > 0.0 (Error / Syndrome Involvement)
+    - Mapping: Physical Coordinates -> Dense Indices (0~d-1)
+    - Normalization: Divided by 2.0 (Max connectivity per type is 2)
+    
+    Channels:
+    0: Z-syndrome count (0.0, 0.5, 1.0)
+    1: X-syndrome count (0.0, 0.5, 1.0)
+    2: LUT Z-error prediction (Binary 0.0 or 1.0)
+    3: LUT X-error prediction (Binary 0.0 or 1.0)
     """
 
     def __init__(self, args, x_error_lut, z_error_lut, dropout=0.1, label_smoothing=0.0):
         super(ECC_ViT_LUT_Concat, self).__init__()
         self.args = args
-        self.L = args.code_L
-
+        
         code = args.code
         self.n_z = code.H_z.shape[0]
         self.n_x = code.H_x.shape[0]
         self.n_qubits = code.H_z.shape[1]
 
         # -----------------------------------------------------------
-        # [VECTORIZED] Precompute coordinate mapping as tensors
+        # [CHANGE 1] Dense Grid Size Calculation
         # -----------------------------------------------------------
-        qubit_rows = torch.arange(self.n_qubits) // self.L
-        qubit_cols = torch.arange(self.n_qubits) % self.L
+        self.L = int(np.sqrt(self.n_qubits))
         
-        # Register as buffers (moved to device automatically)
-        self.register_buffer('qubit_rows', qubit_rows)  # (n_qubits,)
-        self.register_buffer('qubit_cols', qubit_cols)  # (n_qubits,)
+        # -----------------------------------------------------------
+        # [CHANGE 2] Physical Coords -> Dense Index Mapping
+        # -----------------------------------------------------------
+        if hasattr(code, 'qubit_coordinates'):
+            coords = code.qubit_coordinates 
+        else:
+            print("Warning: No coordinates found. Using linear mapping.")
+            coords = [(i // self.L, i % self.L) for i in range(self.n_qubits)]
 
-        # Convert LUT dict to tensor
+        xs = torch.tensor([c[0] for c in coords])
+        ys = torch.tensor([c[1] for c in coords])
+
+        unique_x = torch.unique(xs, sorted=True)
+        unique_y = torch.unique(ys, sorted=True)
+
+        qubit_rows = torch.bucketize(xs, unique_x)
+        qubit_cols = torch.bucketize(ys, unique_y)
+
+        self.register_buffer('qubit_rows', qubit_rows)
+        self.register_buffer('qubit_cols', qubit_cols)
+
+        # -----------------------------------------------------------
+        # LUT & Matrices Setup
+        # -----------------------------------------------------------
         x_lut_tensor = torch.zeros(self.n_z, self.n_qubits)
         for i, err in x_error_lut.items():
             if i < self.n_z:
@@ -478,14 +500,15 @@ class ECC_ViT_LUT_Concat(nn.Module):
                 z_lut_tensor[i] = err.float()
         self.register_buffer('z_lut', z_lut_tensor)
 
-        # Store H matrices
         H_z_np = code.H_z.cpu().numpy() if torch.is_tensor(code.H_z) else code.H_z
         H_x_np = code.H_x.cpu().numpy() if torch.is_tensor(code.H_x) else code.H_x
 
         self.register_buffer('H_z', torch.from_numpy(H_z_np).float())
         self.register_buffer('H_x', torch.from_numpy(H_x_np).float())
 
-        # Transformer config
+        # -----------------------------------------------------------
+        # Transformer Components
+        # -----------------------------------------------------------
         d_model = getattr(args, 'd_model', 128)
         n_heads = getattr(args, 'h', 8)
         n_layers = getattr(args, 'N_dec', 6)
@@ -493,7 +516,6 @@ class ECC_ViT_LUT_Concat(nn.Module):
         self.d_model = d_model
         self.n_patches = self.L * self.L
 
-        # CNN Patch Embedding (4 channels)
         self.patch_embed = nn.Sequential(
             nn.Conv2d(4, 64, kernel_size=3, padding=1),
             nn.BatchNorm2d(64),
@@ -504,16 +526,10 @@ class ECC_ViT_LUT_Concat(nn.Module):
             nn.Conv2d(128, d_model, kernel_size=1),
         )
 
-        # CLS token
         self.cls_token = nn.Parameter(torch.randn(1, 1, d_model) * 0.02)
-
-        # Learnable position embeddings
         self.pos_embed = nn.Parameter(torch.randn(1, 1 + self.n_patches, d_model) * 0.02)
-
-        # Dropout
         self.dropout = nn.Dropout(dropout)
 
-        # Transformer encoder
         encoder_layer = nn.TransformerEncoderLayer(
             d_model=d_model,
             nhead=n_heads,
@@ -524,7 +540,6 @@ class ECC_ViT_LUT_Concat(nn.Module):
         )
         self.transformer = nn.TransformerEncoder(encoder_layer, num_layers=n_layers)
 
-        # Classification head
         self.head = nn.Sequential(
             nn.LayerNorm(d_model),
             nn.Linear(d_model, d_model // 2),
@@ -533,28 +548,19 @@ class ECC_ViT_LUT_Concat(nn.Module):
             nn.Linear(d_model // 2, 4)
         )
 
-        # Loss
         if label_smoothing > 0:
             self.criterion = nn.CrossEntropyLoss(label_smoothing=label_smoothing)
         else:
             self.criterion = nn.CrossEntropyLoss()
 
     def _batch_lut_lookup(self, syndrome):
-        """Vectorized batch LUT lookup."""
         s_z = syndrome[:, :self.n_z]
         s_x = syndrome[:, self.n_z:]
-
         c_x = torch.matmul(s_z, self.x_lut) % 2
         c_z = torch.matmul(s_x, self.z_lut) % 2
-
         return c_z, c_x
 
     def _compute_concat_grid(self, syndrome):
-        """
-        [VECTORIZED] Compute 4-channel grid in QUBIT SPACE - NO LOOPS!
-        
-        Returns: (B, 4, L, L)
-        """
         batch_size = syndrome.shape[0]
         L = self.L
         device = syndrome.device
@@ -563,84 +569,51 @@ class ECC_ViT_LUT_Concat(nn.Module):
         s_x = syndrome[:, self.n_z:]
 
         # -----------------------------------------------------------
-        # Step 1: Project syndrome to qubit space via H^T
+        # Step 1: Syndrome Count (0.0 ~ 1.0)
         # -----------------------------------------------------------
-        real_z_count = torch.matmul(s_z, self.H_z)  # (B, n_qubits)
+        real_z_count = torch.matmul(s_z, self.H_z) 
         real_x_count = torch.matmul(s_x, self.H_x)
 
-        # Convert to ternary: ON → -1, OFF → +1
-        z_syndrome_on = (real_z_count > 0).float()
-        x_syndrome_on = (real_x_count > 0).float()
+        # [CHANGE 3] Normalize by 2.0 instead of 4.0
+        # Since channels are separated (Z/X), max connectivity is 2.
+        real_z_norm = real_z_count / 2.0
+        real_x_norm = real_x_count / 2.0
+
+        # -----------------------------------------------------------
+        # Step 2: LUT Prediction (0.0 or 1.0)
+        # -----------------------------------------------------------
+        lut_e_z, lut_e_x = self._batch_lut_lookup(syndrome)
+        lut_e_z = lut_e_z.float()
+        lut_e_x = lut_e_x.float()
+
+        # -----------------------------------------------------------
+        # Step 3: Initialize Grid & Scatter
+        # -----------------------------------------------------------
+        grid_stack = torch.zeros(batch_size, 4, L, L, device=device)
+
+        batch_idx = torch.arange(batch_size, device=device).unsqueeze(1).expand(-1, self.n_qubits)
+        rows = self.qubit_rows.unsqueeze(0).expand(batch_size, -1)
+        cols = self.qubit_cols.unsqueeze(0).expand(batch_size, -1)
         
-        real_z_ternary = -2 * z_syndrome_on + 1  # (B, n_qubits)
-        real_x_ternary = -2 * x_syndrome_on + 1
+        grid_stack[batch_idx, 0, rows, cols] = real_z_norm
+        grid_stack[batch_idx, 1, rows, cols] = real_x_norm
+        grid_stack[batch_idx, 2, rows, cols] = lut_e_z
+        grid_stack[batch_idx, 3, rows, cols] = lut_e_x
 
-        # -----------------------------------------------------------
-        # Step 2: LUT lookup
-        # -----------------------------------------------------------
-        lut_e_z, lut_e_x = self._batch_lut_lookup(syndrome)  # (B, n_qubits)
-
-        # Convert to ternary: 0 → -1, 1 → +1
-        lut_e_z_ternary = lut_e_z * 2 - 1
-        lut_e_x_ternary = lut_e_x * 2 - 1
-
-        # -----------------------------------------------------------
-        # Step 3: Initialize grids with 0 (empty positions)
-        # -----------------------------------------------------------
-        real_z_grid = torch.zeros(batch_size, L, L, device=device)
-        real_x_grid = torch.zeros(batch_size, L, L, device=device)
-        lut_z_grid = torch.zeros(batch_size, L, L, device=device)
-        lut_x_grid = torch.zeros(batch_size, L, L, device=device)
-
-        # -----------------------------------------------------------
-        # [VECTORIZED] Step 4: Scatter using advanced indexing
-        # -----------------------------------------------------------
-        # Create batch indices
-        batch_idx = torch.arange(batch_size, device=device).unsqueeze(1)  # (B, 1)
-        batch_idx = batch_idx.expand(-1, self.n_qubits)  # (B, n_qubits)
-        
-        # Expand coordinate buffers
-        rows = self.qubit_rows.unsqueeze(0).expand(batch_size, -1)  # (B, n_qubits)
-        cols = self.qubit_cols.unsqueeze(0).expand(batch_size, -1)  # (B, n_qubits)
-        
-        # Scatter all values at once (no loop!)
-        real_z_grid[batch_idx, rows, cols] = real_z_ternary
-        real_x_grid[batch_idx, rows, cols] = real_x_ternary
-        lut_z_grid[batch_idx, rows, cols] = lut_e_z_ternary
-        lut_x_grid[batch_idx, rows, cols] = lut_e_x_ternary
-
-        # Stack into 4-channel tensor
-        return torch.stack([real_z_grid, real_x_grid, lut_z_grid, lut_x_grid], dim=1)
+        return grid_stack
 
     def forward(self, x):
         batch_size = x.shape[0]
-
-        # 4-channel grid representation
-        x = self._compute_concat_grid(x)  # (B, 4, L, L)
-
-        # Patch embedding
-        x = self.patch_embed(x)  # (B, d_model, L, L)
-
-        # Flatten patches to sequence
-        x = x.flatten(2).transpose(1, 2)  # (B, L*L, d_model)
-
-        # Prepend CLS token
+        x = self._compute_concat_grid(x) 
+        x = self.patch_embed(x) 
+        x = x.flatten(2).transpose(1, 2)
         cls_tokens = self.cls_token.expand(batch_size, -1, -1)
-        x = torch.cat([cls_tokens, x], dim=1)  # (B, 1+L*L, d_model)
-
-        # Add position embedding
+        x = torch.cat([cls_tokens, x], dim=1) 
         x = x + self.pos_embed
         x = self.dropout(x)
-
-        # Transformer
         x = self.transformer(x)
-
-        # Use CLS token for classification
         x = x[:, 0]
-
-        # Classification head
         x = self.head(x)
-
         return x
 
     def loss(self, pred, true_label):
