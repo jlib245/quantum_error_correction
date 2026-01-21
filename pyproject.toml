@@ -9,6 +9,7 @@ dependencies = [
     "intel-extension-for-pytorch>=2.8.0",
     "jupyter>=1.1.1",
     "numpy>=2.2.6",
+    "pandas>=2.3.3",
     "pymatching>=2.3.1",
     "stim>=1.15.0",
     "torch>=2.9.0",
